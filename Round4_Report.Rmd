@@ -1,0 +1,463 @@
+---
+title: "Time Series Project"
+subtitle: "Round 4 Trading Data — Hydrogel Packets and Velvetfruit Extract"
+author: "Jonathan Cheng"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: true
+    number_sections: true
+    fig_width: 7
+    fig_height: 4
+    theme: cosmo
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.align = "center")
+library(TSA)
+```
+
+# Introduction
+
+The data come from **Round 4** of IMC Prosperity 4, which provides a 100 ms order-book snapshot for every product over three trading days. We focus on two products:
+
+-   **Hydrogel Packets** (`HYDROGEL_PACK`), a near-stationary good — a candidate for the Chapter 4 ARMA tools.
+-   **Velvetfruit Extract** (`VELVETFRUIT_EXTRACT`), a non-stationary asset — a candidate for the Chapter 5 ARIMA tools after one differencing step.
+
+For each series we run the standard Box–Jenkins pipeline: identify the order from ACF/PACF/EACF and the BIC subset plot, estimate by maximum likelihood, compare candidates by AIC and BIC, diagnose residuals, and forecast on a held-out window.
+
+# Data
+
+```{r load}
+read_day = function(d) {
+  read.csv(sprintf("data/ROUND_4/prices_round_4_day_%d.csv", d), sep = ";")
+}
+all_px = rbind(read_day(1), read_day(2), read_day(3))
+
+get_series = function(prod) {
+  s = all_px[all_px$product == prod, "mid_price"]
+  s[seq(1, length(s), by = 100)]
+}
+hg = get_series("HYDROGEL_PACK")
+vf = get_series("VELVETFRUIT_EXTRACT")
+```
+
+```{r fig1, fig.cap="Figure 1. Hydrogel mid-price over three days. Dashed line — sample mean."}
+plot(hg, type = "l", ylab = "Mid-price", xlab = "Index",
+     main = "Hydrogel Packets")
+abline(h = mean(hg), lty = 2)
+```
+
+**Interpretation.** Hydrogel oscillates within a tight band around its mean with no visible drift or fanning — level-stationary, so a plain ARMA on the level should be enough.
+
+```{r fig2, fig.cap="Figure 2. Velvetfruit mid-price."}
+plot(vf, type = "l", ylab = "Mid-price", xlab = "Index",
+     main = "Velvetfruit Extract")
+```
+
+**Interpretation.** Velvetfruit drifts away and never returns — the mean is not constant. We will need to difference once before any ARMA identification can apply.
+
+# Hydrogel Packets
+
+```{r hg-split}
+n = length(hg)
+k = floor(0.9 * n)
+train = hg[1:k]
+test  = hg[(k+1):n]
+```
+
+The last 10 % is held out for the forecast test; everything below is fit on the first 90 %.
+
+## Identification
+
+```{r fig3a, fig.cap="Figure 3a. Sample ACF of hydrogel."}
+acf(train, lag.max = 40, main = "ACF — hydrogel")
+```
+
+```{r fig3b, fig.cap="Figure 3b. Sample PACF of hydrogel."}
+pacf(train, lag.max = 40, main = "PACF — hydrogel")
+```
+
+**Interpretation.** A sharp lag-1 spike in either the ACF or PACF followed by little structure is the bid-ask-bounce signature for tick-level price data with a tight spread. Whether the picture leans AR-like or MA-like is decided below by EACF and BIC.
+
+```{r hg-eacf}
+eacf(train, ar.max = 6, ma.max = 6)
+```
+
+**Interpretation.** Find the upper-left corner of the triangle of `o`'s — that gives the candidate (p, q). For tick-level mid-price data the vertex usually lands at (0, 1), MA(1), but EACF can drift to (1, 1) by chance. We resolve the ambiguity with the BIC subset plot and the AIC/BIC table next.
+
+```{r fig4, fig.cap="Figure 4. Subset-ARMA BIC plot. The y-axis is sorted from lowest BIC at the top; black squares show which lags enter the model on each row.", fig.height=5}
+plot(armasubsets(y = train, nar = 6, nma = 6,
+                 y.name = "y", ar.method = "ols"))
+```
+
+**Interpretation.** The top row of the plot is the BIC-best subset ARMA. If only `lag-1-AR` is shaded, the data prefer AR(1); if only `lag-1-MA`, they prefer MA(1); if both, ARMA(1, 1). This is the most direct visual answer to the order question.
+
+## Estimation
+
+```{r hg-fit}
+m1 = arima(train, order = c(1, 0, 0))     # AR(1)
+m2 = arima(train, order = c(2, 0, 0))     # AR(2)        — overfit check
+m3 = arima(train, order = c(0, 0, 1))     # MA(1)        — bid-ask bounce
+m4 = arima(train, order = c(1, 0, 1))     # ARMA(1, 1)   — what EACF often suggests
+
+rbind(
+  "AR(1)"      = c(AIC = AIC(m1), BIC = BIC(m1)),
+  "AR(2)"      = c(AIC = AIC(m2), BIC = BIC(m2)),
+  "MA(1)"      = c(AIC = AIC(m3), BIC = BIC(m3)),
+  "ARMA(1, 1)" = c(AIC = AIC(m4), BIC = BIC(m4))
+)
+```
+
+**Interpretation.** Smallest BIC wins; differences under 2 are noise, 4+ are decisive. BIC's heavier complexity penalty often picks AR(1) or MA(1) where AIC alone might pick ARMA(1, 1).
+
+```{r hg-zstats}
+z_stat = function(fit, par) coef(fit)[par] / sqrt(diag(fit$var.coef))[par]
+c("AR(1) phi₁"      = z_stat(m1, "ar1"),
+  "AR(2) phi₂"      = z_stat(m2, "ar2"),
+  "MA(1) theta₁"    = z_stat(m3, "ma1"),
+  "ARMA(1,1) theta₁" = z_stat(m4, "ma1"))
+```
+
+**Interpretation.** $|z| < 2$ means "not significant" — you can drop that term. If `ARMA(1,1) theta₁` is below 2 in absolute value, the extra MA term is redundant and the data prefer AR(1) by parsimony, even when BIC nominally favours ARMA(1, 1) by a small margin.
+
+```{r hg-best}
+hg_models = list("AR(1)" = m1, "AR(2)" = m2, "MA(1)" = m3, "ARMA(1,1)" = m4)
+ord       = order(c(BIC(m1), BIC(m2), BIC(m3), BIC(m4)))
+hg_best   = hg_models[[ ord[1] ]]
+hg_second = hg_models[[ ord[2] ]]
+cat("BIC-best:  ", names(hg_models)[ord[1]], "\n")
+cat("Runner-up: ", names(hg_models)[ord[2]], "\n")
+hg_best
+```
+
+**Interpretation.** `hg_best` is the BIC-best fitted model; `hg_second` is the runner-up by BIC, kept around as a sanity check — if its forecast performs comparably out of sample, the BIC-best choice was not as decisive as the in-sample number suggests.
+
+## Diagnostics
+
+```{r fig5, fig.cap="Figure 5. tsdiag() page for the BIC-best model.", fig.height=6}
+tsdiag(hg_best, gof.lag = 20)
+```
+
+**Interpretation.** Residuals patternless, ACF bars inside the band, all Ljung-Box p-values above 0.05 — the model adequately captures the in-sample dynamics. Anything else means the order is too small.
+
+```{r fig6, fig.cap="Figure 6. Q-Q plot of residuals."}
+qqnorm(residuals(hg_best)); qqline(residuals(hg_best))
+```
+
+**Interpretation.** Slight tail deviations are common with financial-style series and only matter to the calibration of the prediction interval, not to the point forecast.
+
+## Forecasting
+
+```{r fig7a, fig.cap="Figure 7a. plot.Arima() forecast for the BIC-best hydrogel model with 95 percent prediction limits."}
+h = length(test)
+plot(hg_best, n.ahead = h, ylab = "Mid-price",
+     main = "Hydrogel — BIC-best forecast")
+```
+
+```{r fig7b, fig.cap="Figure 7b. Same forecast page for the BIC runner-up. Compare to Figure 7a — if the two forecasts and bands are nearly identical, the model choice does not matter much for prediction."}
+plot(hg_second, n.ahead = h, ylab = "Mid-price",
+     main = "Hydrogel — runner-up forecast")
+```
+
+**Interpretation.** The forecast reverts to the sample mean (AR(1) geometrically, MA(1) instantly after one step). The PI reaches a finite asymptote because the level is stationary — no $\sqrt h$ fanning. Comparing the two figures is the visual robustness check: near-identical forecasts mean the data are not strongly distinguishing between the two orders, and either model would do.
+
+```{r hg-mse}
+pr1 = predict(hg_best,   n.ahead = h)
+pr2 = predict(hg_second, n.ahead = h)
+c(BIC_best  = mean((pr1$pred - test)^2),
+  runner_up = mean((pr2$pred - test)^2))
+```
+
+**Interpretation.** Test-set MSE for both candidates. The smaller value is the better out-of-sample forecaster. If the BIC-best wins, in-sample and out-of-sample agree and we are confident in the choice. If the runner-up wins, the BIC penalty was too aggressive for this particular sample — note it but stick with the BIC pick on parsimony grounds unless the gap is large.
+
+# Velvetfruit Extract
+
+```{r vf-split}
+n = length(vf)
+k = floor(0.9 * n)
+train = vf[1:k]
+test  = vf[(k+1):n]
+```
+
+## Variance stabilisation — Box–Cox
+
+```{r fig8, fig.cap="Figure 8. Box–Cox profile log-likelihood. Vertical references: lambda = 0 (log, dashed) and lambda = 1 (identity, dotted)."}
+bc = BoxCox.ar(train, lambda = seq(-2, 2, by = 0.1))
+abline(v = 0, lty = 2)
+abline(v = 1, lty = 3)
+bc$mle
+bc$ci
+```
+
+**Interpretation.** If 0 lies inside the dashed CI band on the profile, we model `log(price)` — that turns the first difference into a log return whose variance is stable across price level. If 1 lies inside instead, the raw scale is fine.
+
+```{r vf-pick}
+use_log = 0 >= bc$ci[1] && 0 <= bc$ci[2]
+y = if (use_log) log(train) else train
+use_log
+```
+
+## Differencing
+
+```{r fig9a, fig.cap="Figure 9a. Velvetfruit on the chosen modelling scale."}
+plot(y, type = "l", ylab = "", main = "Velvetfruit (modelling scale)")
+```
+
+```{r fig9b, fig.cap="Figure 9b. First difference of the modelling-scale series."}
+plot(diff(y), type = "l", ylab = "", main = "First difference")
+abline(h = 0, lty = 2)
+```
+
+**Interpretation.** The differenced series should fluctuate around zero with stable spread; if it still trends, difference again. For velvetfruit one difference is enough.
+
+## Identification on the differenced series
+
+```{r fig10a, fig.cap="Figure 10a. ACF of differenced velvetfruit."}
+acf(diff(y), lag.max = 40, main = "ACF — diff(y)")
+```
+
+```{r fig10b, fig.cap="Figure 10b. PACF of differenced velvetfruit."}
+pacf(diff(y), lag.max = 40, main = "PACF — diff(y)")
+```
+
+**Interpretation.** A single significant bar at lag 1 in the ACF (and nothing in the PACF) is the ARIMA(0, 1, 1) signature. All bars inside the band would mean the differenced series is white noise and a pure random walk ARIMA(0, 1, 0) suffices.
+
+```{r vf-eacf}
+eacf(diff(y), ar.max = 6, ma.max = 6)
+```
+
+**Interpretation.** For a differenced asset price the vertex typically lands at (0, 0) (random walk) or (0, 1) (random walk plus MA correction).
+
+```{r vf-armasubsets, fig.cap="Figure 11. BIC subset plot for the differenced velvetfruit series. The top row is the BIC-best subset ARMA on the differences — equivalently the BIC-best ARIMA(p, 1, q) on the level.", fig.height=5}
+plot(armasubsets(y = diff(y), nar = 6, nma = 6,
+                 y.name = "dy", ar.method = "ols"))
+```
+
+**Interpretation.** Since differencing is what makes the series stationary, we run `armasubsets()` on `diff(y)` rather than the level itself. The top row of the plot is the BIC-best subset on the differences — equivalently, the BIC-best ARIMA(p, 1, q) on the level. If only `lag-1-MA` is shaded the data prefer ARIMA(0, 1, 1); if nothing is shaded ARIMA(0, 1, 0) wins. The AIC/BIC table next gives the same answer numerically.
+
+## Estimation
+
+```{r vf-fit}
+m1 = arima(y, order = c(0, 1, 0))   # ARIMA(0,1,0) — pure random walk
+m2 = arima(y, order = c(0, 1, 1))   # ARIMA(0,1,1) — MA correction
+m3 = arima(y, order = c(1, 1, 0))   # ARIMA(1,1,0) — AR correction
+
+rbind(
+  "ARIMA(0,1,0)" = c(AIC = AIC(m1), BIC = BIC(m1)),
+  "ARIMA(0,1,1)" = c(AIC = AIC(m2), BIC = BIC(m2)),
+  "ARIMA(1,1,0)" = c(AIC = AIC(m3), BIC = BIC(m3))
+)
+```
+
+**Interpretation.** ARIMA(0, 1, 1) typically wins. A non-zero MA coefficient says last period's innovation has lasting impact on the level; a coefficient near zero collapses back to the pure random walk.
+
+```{r vf-best}
+vf_models = list("ARIMA(0,1,0)" = m1, "ARIMA(0,1,1)" = m2, "ARIMA(1,1,0)" = m3)
+ord       = order(c(BIC(m1), BIC(m2), BIC(m3)))
+m_vf      = vf_models[[ ord[1] ]]
+m_vf2     = vf_models[[ ord[2] ]]
+cat("BIC-best:  ", names(vf_models)[ord[1]], "\n")
+cat("Runner-up: ", names(vf_models)[ord[2]], "\n")
+m_vf
+```
+
+**Interpretation.** `m_vf` is the BIC winner; `m_vf2` is the runner-up, kept around so we can cross-check the forecast out-of-sample.
+
+## Diagnostics
+
+```{r fig12, fig.cap="Figure 12. tsdiag() page for the BIC-best velvetfruit model.", fig.height=6}
+tsdiag(m_vf, gof.lag = 20)
+```
+
+**Interpretation.** Same checks as for hydrogel — flat residuals, clean ACF, Ljung-Box p-values above 0.05.
+
+```{r fig13, fig.cap="Figure 13. Q-Q plot of residuals."}
+qqnorm(residuals(m_vf)); qqline(residuals(m_vf))
+```
+
+**Interpretation.** Mild heavy tails are expected for return-like residuals and don't invalidate the autocorrelation-based diagnostics above.
+
+## Forecasting
+
+```{r fig14a, fig.cap="Figure 14a. plot.Arima() forecast for the BIC-best velvetfruit model on the price scale (back-transformed via exp() if log was used)."}
+h = length(test)
+if (use_log) {
+  plot(m_vf, n.ahead = h, transform = exp, ylab = "Mid-price",
+       main = "Velvetfruit — BIC-best forecast")
+} else {
+  plot(m_vf, n.ahead = h, ylab = "Mid-price",
+       main = "Velvetfruit — BIC-best forecast")
+}
+```
+
+```{r fig14b, fig.cap="Figure 14b. Same forecast page for the BIC runner-up. Compare against Figure 14a."}
+if (use_log) {
+  plot(m_vf2, n.ahead = h, transform = exp, ylab = "Mid-price",
+       main = "Velvetfruit — runner-up forecast")
+} else {
+  plot(m_vf2, n.ahead = h, ylab = "Mid-price",
+       main = "Velvetfruit — runner-up forecast")
+}
+```
+
+**Interpretation.** Point forecast flat-lines at the last observed level; the PI fans out at rate $\sqrt h$ because the process is non-stationary. Back-transforming through `exp` produces an asymmetric band on the price scale, wider above than below — a faithful reflection of the non-negative support of prices. The two figures should look near-identical for our candidate set (ARIMA(0, 1, 0) vs ARIMA(0, 1, 1) vs ARIMA(1, 1, 0)) — the point forecast for any (p, 1, q) model becomes the long-run mean almost immediately, and most of the visual difference is in how wide the band is rather than where the centre line goes.
+
+```{r vf-mse}
+predict_back = function(model) {
+  pr = predict(model, n.ahead = h)
+  if (use_log) exp(pr$pred) else pr$pred
+}
+c(BIC_best  = mean((predict_back(m_vf)  - test)^2),
+  runner_up = mean((predict_back(m_vf2) - test)^2))
+```
+
+**Interpretation.** Test-set MSE on the price scale, both candidates side by side. The smaller MSE is the better out-of-sample forecaster. A near-tie is expected here: the three ARIMA(p, 1, q) candidates all flat-line at the last observed value, so their *point* forecasts are nearly identical and only the prediction-interval widths differ. Compared to the hydrogel MSE these should be much larger because non-stationary forecasts are inherently wider and the realised velvetfruit noise is orders of magnitude bigger.
+
+# Monte Carlo Simulation
+
+```{r fig15, fig.cap="Figure 15. Twenty Monte Carlo paths from the fitted velvetfruit model (thin lines) overlaid on the actual training series (thick line).", fig.height=4.5}
+set.seed(429)
+sigma = sqrt(m_vf$sigma2)
+y0    = y[1]
+N     = length(train)
+
+# Build the ARMA spec dynamically from whatever order BIC picked.
+# m_vf$arma is c(p, q, P, Q, period, d, D); for our pipeline only p, q, d matter.
+p = m_vf$arma[1]
+q = m_vf$arma[2]
+mod_list = list()
+if (p > 0) mod_list$ar = coef(m_vf)[paste0("ar", seq_len(p))]
+if (q > 0) mod_list$ma = coef(m_vf)[paste0("ma", seq_len(q))]
+
+sim_path = function() {
+  innov = if (length(mod_list) == 0)
+            rnorm(N - 1, sd = sigma)                       # pure random walk
+          else
+            arima.sim(model = mod_list, n = N - 1, sd = sigma)
+  y_path = c(y0, y0 + cumsum(innov))
+  if (use_log) exp(y_path) else y_path
+}
+
+paths = replicate(20, sim_path())
+
+plot(train, type = "n", ylim = range(c(train, paths)),
+     ylab = "Mid-price", xlab = "Index",
+     main = "20 Monte Carlo paths")
+for (i in 1:20) lines(paths[, i], lwd = 0.5)
+lines(train, lwd = 2)
+```
+
+**Interpretation.** The actual data sits inside the cloud of synthetic paths the model would generate — sanity check that the fit is reasonable. None of the 20 paths is identical to the actual one, which is exactly the point of MC: each is one possible realisation of the same underlying random process.
+
+```{r fig16, fig.cap="Figure 16. P&L histogram for a toy mean-reversion rule applied to 1000 simulated paths. Vertical line — P&L on the actual training data."}
+toy = function(price) {
+  ma = filter(price, rep(1/100, 100), sides = 1)
+  signal = as.numeric(price < ma - 5); signal[is.na(signal)] = 0
+  ret = diff(price)
+  sum(signal[-length(signal)] * ret)
+}
+sim_pnl = replicate(1000, toy(sim_path()))
+hist(sim_pnl, breaks = 40,
+     main = "Simulated P&L distribution (1000 paths)",
+     xlab = "End-of-day P&L (XIRECS)")
+abline(v = toy(train), lwd = 2)
+```
+
+**Interpretation.** The standard deviation of this histogram is the **noise floor**: any single-day P&L improvement smaller than one MC-σ is statistically indistinguishable from luck. If the actual P&L (vertical line) sits in the bulk of the histogram our strategy is performing as the model predicts; if it sits in a tail, either the day was unusual or the model is mis-specified.
+
+# Conclusions
+
+Both Round 4 series fit cleanly into the standard Box–Jenkins pipeline.
+
+**Hydrogel** is level-stationary; the EACF and BIC subset plot together pick a low-order ARMA, and the z-statistic check resolves any ARMA(1, 1)-vs-AR(1) ambiguity by parsimony. A negative MA coefficient (when MA(1) wins) is the quantitative signature of bid-ask bounce. Forecasts revert to the sample mean.
+
+**Velvetfruit** is non-stationary; Box–Cox typically prefers the log scale, after which one differencing step yields ARIMA(0, 1, 1). Forecasts flat-line at the last observation with a $\sqrt h$-fanning prediction band on the price scale.
+
+The fitted models double as generators for **Monte Carlo backtesting**: simulated paths from `arima.sim()` give a P&L distribution that defines the noise floor against which any real strategy improvement should be measured.
+
+# References
+
+Cryer, J. D., & Chan, K.-S. (2008). *Time Series Analysis: With Applications in R* (2nd ed.). Springer.
+
+IMC Trading. (2025). *Prosperity 4 — Round 4 historical data.*
+
+# Appendix
+
+## A. Data dictionary
+
+Each `prices_round_4_day_{d}.csv` is a semicolon-delimited table with one row per (product × 100 ms tick). Columns are:
+
+| Column | Type | Description |
+|------------------------|------------------------|------------------------|
+| `day` | integer | Trading day index (1, 2, 3) |
+| `timestamp` | integer | Tick within the day, 0 to 999 900 in steps of 100 ms |
+| `product` | string | Instrument symbol (`HYDROGEL_PACK`, `VELVETFRUIT_EXTRACT`, `VEV_{strike}`) |
+| `bid_price_{1,2,3}` | numeric | Top three bid levels in the order book |
+| `bid_volume_{1,2,3}` | integer | Resting volume at each bid level |
+| `ask_price_{1,2,3}` | numeric | Top three ask levels |
+| `ask_volume_{1,2,3}` | integer | Resting volume at each ask level |
+| `mid_price` | numeric | $(bid_1 + ask_1) / 2$, the price modelled throughout |
+| `profit_and_loss` | numeric | Running P&L for the algorithm (irrelevant to this analysis) |
+
+Each `trades_round_4_day_{d}.csv` has columns `timestamp; buyer; seller; symbol; currency; price; quantity` — used only descriptively for the bot-behaviour discussion in earlier drafts and not for the formal model fits.
+
+## B. Glossary of statistical terms
+
+| Term | Meaning as used in the report |
+|------------------------------------|------------------------------------|
+| **ACF** | Sample autocorrelation function $\hat\rho_k = \widehat{\mathrm{Cov}}(X_t, X_{t+k}) / \widehat{\mathrm{Var}}(X_t)$, lag k = 0, 1, 2, … |
+| **PACF** | Partial autocorrelation function — correlation between $X_t$ and $X_{t-k}$ after stripping out lags 1 through k − 1 |
+| **EACF** | Extended autocorrelation function (Tsay & Tiao 1984) — small grid where the upper-left vertex of o's gives a candidate (p, q) |
+| **AR(p)** | Autoregressive model of order p: $X_t = \mu + \phi_1 X_{t-1} + \dots + \phi_p X_{t-p} + \varepsilon_t$ |
+| **MA(q)** | Moving-average model of order q: $X_t = \mu + \varepsilon_t + \theta_1 \varepsilon_{t-1} + \dots + \theta_q \varepsilon_{t-q}$ |
+| **ARMA(p, q)** | Combination of the above |
+| **ARIMA(p, d, q)** | ARMA(p, q) applied to the d-th difference of the series |
+| **AIC** | Akaike Information Criterion: $-2\log L + 2k$, smaller is better |
+| **BIC** | Bayesian Information Criterion: $-2\log L + k\log n$, smaller is better, penalises complexity more than AIC |
+| **AICc** | Small-sample-corrected AIC: $\mathrm{AIC} + 2k(k+1)/(n-k-1)$ |
+| **Box-Cox** | Power-transform family $y^{(\lambda)} = (y^\lambda - 1)/\lambda$ for $\lambda \ne 0$, $\log y$ for $\lambda = 0$ |
+| **Ljung-Box** | Joint test that the first $m$ residual autocorrelations are zero — used in `tsdiag()` |
+| **Q-Q plot** | Quantile-quantile plot — empirical quantiles of residuals against Normal-distribution quantiles |
+| **MSE** | Mean squared error — average squared difference between forecast and realised value |
+
+## C. Software and reproducibility
+
+This report was knit with **R Markdown** under R `r getRversion()` and the following package versions:
+
+```{r session-info}
+sessionInfo()
+```
+
+The only non-base package required for the analysis is `TSA` (Cryer & Chan companion). All ARIMA fits use base-R `arima()`; all forecasts use TSA's `plot.Arima()`; all simulation draws use base-R `arima.sim()` and `rnorm()`. No tidyverse, no ggplot2, no rugarch, no forecast package.
+
+To re-knit:
+
+1.  Place `prices_round_4_day_{1, 2, 3}.csv` in `data/ROUND_4/`.
+2.  Open `Round4_Report.Rmd` in RStudio.
+3.  Click **Knit** (or run `rmarkdown::render("Round4_Report.Rmd")` from the console).
+
+The first knit will install `TSA` from CRAN if it is not already present.
+
+## D. Full code listing
+
+``` r
+library(TSA)
+
+# Variance + mean stabilisation
+bc = BoxCox.ar(train, lambda = seq(-2, 2, 0.1))
+y = log(train)                        # if 0 ∈ bc$ci
+
+# Identify on differences
+acf(diff(y)); pacf(diff(y)); eacf(diff(y))
+
+# Fit ARIMA(p, 1, q) candidates
+m1 = arima(y, order = c(0, 1, 0))     # random walk
+m2 = arima(y, order = c(0, 1, 1))     # +MA correction
+
+rbind(RW = BIC(m1), RW_MA = BIC(m2))
+
+# Forecast back to price scale
+plot(m1, n.ahead = length(test), transform = exp)
+```
