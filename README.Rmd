@@ -212,14 +212,14 @@ pacf(diff(y), lag.max = 10, main = "PACF — diff(y)")
 eacf(diff(y), ar.max = 6, ma.max = 6)
 ```
 
-**Interpretation.** For a differenced asset price the vertex typically lands at (0, 0) (random walk) or (0, 1) (random walk plus MA correction).
+**Interpretation.** Read the table for a triangle of `o`'s whose upper-left vertex gives the candidate (p, q). Here the (0, 0) cell is `o` but (0, 2) is already `x`, so the corner is broken — there is no clean low-order vertex. The first cell with all-`o`'s to the right and below sits up around (3, 5), which is implausibly complex for a price difference and almost certainly chance. The absence of a clean low-order corner is itself consistent with "differences are white noise" — EACF does not single out an ARMA(p, q) alternative to ARIMA(0, 1, 0).
 
 ```{r vf-armasubsets, fig.cap="Figure 11. BIC subset plot for the differenced velvetfruit series. The top row is the BIC-best subset ARMA on the differences — equivalently the BIC-best ARIMA(p, 1, q) on the level.", fig.height=5}
 plot(armasubsets(y = diff(y), nar = 6, nma = 6,
                  y.name = "dy", ar.method = "ols"))
 ```
 
-**Interpretation.** Since differencing is what makes the series stationary, we run `armasubsets()` on `diff(y)` rather than the level itself. The top row of the plot is the BIC-best subset on the differences — equivalently, the BIC-best ARIMA(p, 1, q) on the level. If only `lag-1-MA` is shaded the data prefer ARIMA(0, 1, 1); if nothing is shaded ARIMA(0, 1, 0) wins. The AIC/BIC table next gives the same answer numerically.
+**Interpretation.** Since differencing is what makes the series stationary, we run `armasubsets()` on `diff(y)` rather than the level itself. The top row of the plot is the BIC-best subset on the differences — equivalently, the BIC-best ARIMA(p, 1, q) on the level. Here the BIC-best row has only `error-lag6` shaded (BIC ≈ −0.79), i.e. an isolated θ₆ MA correction. The intercept-only baseline sits at BIC ≈ 0, so the improvement from adding that one term is under 1 BIC unit — well below the "decisive" threshold of 2 — and the chosen lag (6) has no economic story behind it. Like the ACF/PACF and EACF, the subset plot fails to identify a meaningful low-order ARMA structure on the differences, leaving the random walk ARIMA(0, 1, 0) as the parsimonious default; the AIC/BIC table next confirms this numerically.
 
 ## Estimation
 
