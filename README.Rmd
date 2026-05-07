@@ -36,7 +36,7 @@ vf = read.csv("velvetfruit_mid.csv")$mid_price
 Each cleaned CSV is a pre-decimated mid-price series at 10-second spacing — ~300 rows per product, derived by keeping every 100th 100-ms tick across the three Round 4 days. At full tick resolution every ACF bar sits near 0.998 and the identification tools are uninformative; the decimation gives the standard textbook ACF/PACF picture without losing the trend. See Appendix A.
 
 ```{r fig1, fig.cap="Figure 1. Hydrogel mid-price over three days. Dashed line — sample mean."}
-plot(hg, type = "l", ylab = "Mid-price", xlab = "Tick index",
+plot(hg, type = "l", ylab = "Mid-price", xlab = "Tick",
      main = "Hydrogel Packets")
 abline(h = mean(hg), lty = 2)
 ```
@@ -44,7 +44,7 @@ abline(h = mean(hg), lty = 2)
 **Interpretation.** Hydrogel oscillates within a tight band around its mean with no visible drift or fanning — level-stationary, so a plain ARMA on the level should be enough.
 
 ```{r fig2, fig.cap="Figure 2. Velvetfruit mid-price. Dashed line — sample mean."}
-plot(vf, type = "l", ylab = "Mid-price", xlab = "Tick index",
+plot(vf, type = "l", ylab = "Mid-price", xlab = "Tick",
      main = "Velvetfruit Extract")
 abline(h = mean(vf), lty = 2)
 ```
@@ -336,7 +336,7 @@ sim_path = function() {
 paths = replicate(20, sim_path())
 
 plot(train, type = "n", ylim = range(c(train, paths)),
-     ylab = "Mid-price", xlab = "Tick index",
+     ylab = "Mid-price", xlab = "Tick",
      main = "20 Monte Carlo paths")
 for (i in 1:20) lines(paths[, i], lwd = 0.5)
 lines(train, lwd = 2)

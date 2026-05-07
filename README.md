@@ -62,7 +62,7 @@ decimation gives the standard textbook ACF/PACF picture without losing
 the trend. See Appendix A.
 
 ``` r
-plot(hg, type = "l", ylab = "Mid-price", xlab = "Tick index",
+plot(hg, type = "l", ylab = "Mid-price", xlab = "Tick",
      main = "Hydrogel Packets")
 abline(h = mean(hg), lty = 2)
 ```
@@ -82,7 +82,7 @@ mean with no visible drift or fanning — level-stationary, so a plain
 ARMA on the level should be enough.
 
 ``` r
-plot(vf, type = "l", ylab = "Mid-price", xlab = "Tick index",
+plot(vf, type = "l", ylab = "Mid-price", xlab = "Tick",
      main = "Velvetfruit Extract")
 abline(h = mean(vf), lty = 2)
 ```
@@ -731,7 +731,7 @@ sim_path = function() {
 paths = replicate(20, sim_path())
 
 plot(train, type = "n", ylim = range(c(train, paths)),
-     ylab = "Mid-price", xlab = "Tick index",
+     ylab = "Mid-price", xlab = "Tick",
      main = "20 Monte Carlo paths")
 for (i in 1:20) lines(paths[, i], lwd = 0.5)
 lines(train, lwd = 2)
