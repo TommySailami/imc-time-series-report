@@ -251,32 +251,28 @@ m_vf
 
 ## Diagnostics
 
-```{r fig12, fig.cap="Figure 12. tsdiag() page for the BIC-best velvetfruit model.", fig.height=6}
-tsdiag(m_vf, gof.lag = 20)
-```
+For ARIMA(0, 1, 0) the one-step residuals equal `diff(y)` minus the sample mean, so the residual time-plot and residual ACF are mechanically the same series we already inspected during identification — no new information. The joint Ljung-Box test on the residuals does flag the lag-3 spike (p = 0.006 at lag 5), but that is just the formal version of the visual feature already discussed in the ACF/PACF section, and neither ARIMA(1, 1, 0) nor ARIMA(0, 1, 1) can absorb it without a BIC penalty of 5.5 units. The one residual check that *is* new for any ARIMA(p, 1, q) is normality, since the prediction interval below assumes Normal innovations.
 
-**Interpretation.** Same checks as for hydrogel — flat residuals, clean ACF, Ljung-Box p-values above 0.05.
-
-```{r fig13, fig.cap="Figure 13. Q-Q plot of residuals."}
+```{r fig12, fig.cap="Figure 12. Q-Q plot of residuals from the BIC-best velvetfruit model."}
 qqnorm(residuals(m_vf)); qqline(residuals(m_vf))
 ```
 
-**Interpretation.** Mild heavy tails are expected for return-like residuals and don't invalidate the autocorrelation-based diagnostics above.
+**Interpretation.** Residuals lie tight to the Normal line through the bulk of the distribution, with only a slight left-tail deviation around theoretical quantiles below −1.5 — far from the heavy-tailed shape that would worry us about prediction-interval calibration. Effectively Normal for inference purposes.
 
 ## Forecasting
 
-```{r fig14a, fig.cap="Figure 14a. plot.Arima() forecast for the BIC-best velvetfruit model with 95 percent prediction limits."}
+```{r fig13a, fig.cap="Figure 13a. plot.Arima() forecast for the BIC-best velvetfruit model with 95 percent prediction limits."}
 h = length(test)
 plot(m_vf, n.ahead = h, ylab = "Mid-price", xlab = "Tick",
      main = "Velvetfruit — BIC-best forecast")
 ```
 
-```{r fig14b, fig.cap="Figure 14b. Same forecast page for the BIC runner-up. Compare against Figure 14a."}
+```{r fig13b, fig.cap="Figure 13b. Same forecast page for the BIC runner-up. Compare against Figure 13a."}
 plot(m_vf2, n.ahead = h, ylab = "Mid-price", xlab = "Tick",
      main = "Velvetfruit — runner-up forecast")
 ```
 
-**Interpretation.** Point forecast flat-lines at the last observed level; the PI fans out at rate $\sqrt h$ because the process is non-stationary. The two figures should look near-identical for our candidate set (ARIMA(0, 1, 0) vs ARIMA(0, 1, 1) vs ARIMA(1, 1, 0)) — the point forecast for any (p, 1, q) model becomes the long-run mean almost immediately, and most of the visual difference is in how wide the band is rather than where the centre line goes.
+**Interpretation.** Point forecast flat-lines at the last observed level; the PI fans out at rate $\sqrt h$ because the process is non-stationary. The two figures should look near-identical for our candidate set (ARIMA(0, 1, 0) vs ARIMA(0, 1, 1) vs ARIMA(1, 1, 0)) — the point forecast for any (p, 1, q) model converges to the last observed level almost immediately, and most of the visual difference is in how wide the band is rather than where the centre line goes.
 
 ```{r vf-mse}
 pr1 = predict(m_vf,  n.ahead = h)
@@ -289,7 +285,7 @@ c(BIC_best  = mean((pr1$pred - test)^2),
 
 # Monte Carlo Simulation
 
-```{r fig15, fig.cap="Figure 15. Twenty Monte Carlo paths from the fitted velvetfruit model (thin lines) overlaid on the actual training series (thick line).", fig.height=4.5}
+```{r fig14, fig.cap="Figure 14. Twenty Monte Carlo paths from the fitted velvetfruit model (thin lines) overlaid on the actual training series (thick line).", fig.height=4.5}
 set.seed(429)
 sigma = sqrt(m_vf$sigma2)
 y0    = y[1]
@@ -322,7 +318,7 @@ lines(train, lwd = 2)
 
 **Interpretation.** The actual data sits inside the cloud of synthetic paths the model would generate — sanity check that the fit is reasonable. None of the 20 paths is identical to the actual one, which is exactly the point of MC: each is one possible realisation of the same underlying random process.
 
-```{r fig16, fig.cap="Figure 16. P&L histogram for a toy mean-reversion rule applied to 1000 simulated paths. Vertical line — P&L on the actual training data."}
+```{r fig15, fig.cap="Figure 15. P&L histogram for a toy mean-reversion rule applied to 1000 simulated paths. Vertical line — P&L on the actual training data."}
 toy = function(price) {
   ma = filter(price, rep(1/100, 100), sides = 1)
   signal = as.numeric(price < ma - 5); signal[is.na(signal)] = 0
