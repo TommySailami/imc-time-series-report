@@ -1,9 +1,12 @@
 ---
 title: "Time Series Project"
 subtitle: "Round 4 Trading Data — Hydrogel Packets and Velvetfruit Extract"
-author: "Jonathan Cheng"
+author: "Jonathan Cheng, Kevin Yang"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output:
+  github_document:
+    toc: true
+    number_sections: true
   html_document:
     toc: true
     number_sections: true
@@ -30,21 +33,14 @@ For each series we run the standard Box–Jenkins pipeline: identify the order f
 # Data
 
 ```{r load}
-read_day = function(d) {
-  read.csv(sprintf("data/ROUND_4/prices_round_4_day_%d.csv", d), sep = ";")
-}
-all_px = rbind(read_day(1), read_day(2), read_day(3))
-
-get_series = function(prod) {
-  s = all_px[all_px$product == prod, "mid_price"]
-  s[seq(1, length(s), by = 100)]
-}
-hg = get_series("HYDROGEL_PACK")
-vf = get_series("VELVETFRUIT_EXTRACT")
+hg = read.csv("hydrogel_mid.csv")$mid_price
+vf = read.csv("velvetfruit_mid.csv")$mid_price
 ```
 
+Each series is the full 100-ms-tick mid-price for the named product across the three Round 4 days — roughly 30 000 observations apiece. The raw IMC order-book dumps were pre-processed by `scripts/clean_round4.R` into two-column (`t`, `mid_price`) CSVs; see Appendix A.
+
 ```{r fig1, fig.cap="Figure 1. Hydrogel mid-price over three days. Dashed line — sample mean."}
-plot(hg, type = "l", ylab = "Mid-price", xlab = "Index",
+plot(hg, type = "l", ylab = "Mid-price", xlab = "Tick index",
      main = "Hydrogel Packets")
 abline(h = mean(hg), lty = 2)
 ```
@@ -52,7 +48,7 @@ abline(h = mean(hg), lty = 2)
 **Interpretation.** Hydrogel oscillates within a tight band around its mean with no visible drift or fanning — level-stationary, so a plain ARMA on the level should be enough.
 
 ```{r fig2, fig.cap="Figure 2. Velvetfruit mid-price."}
-plot(vf, type = "l", ylab = "Mid-price", xlab = "Index",
+plot(vf, type = "l", ylab = "Mid-price", xlab = "Tick index",
      main = "Velvetfruit Extract")
 ```
 
@@ -343,7 +339,7 @@ sim_path = function() {
 paths = replicate(20, sim_path())
 
 plot(train, type = "n", ylim = range(c(train, paths)),
-     ylab = "Mid-price", xlab = "Index",
+     ylab = "Mid-price", xlab = "Tick index",
      main = "20 Monte Carlo paths")
 for (i in 1:20) lines(paths[, i], lwd = 0.5)
 lines(train, lwd = 2)
@@ -387,21 +383,14 @@ IMC Trading. (2025). *Prosperity 4 — Round 4 historical data.*
 
 ## A. Data dictionary
 
-Each `prices_round_4_day_{d}.csv` is a semicolon-delimited table with one row per (product × 100 ms tick). Columns are:
+The analysis reads two cleaned CSVs in `data/`, produced by `scripts/clean_round4.R` from the IMC Round 4 raw order-book dumps:
 
-| Column | Type | Description |
-|------------------------|------------------------|------------------------|
-| `day` | integer | Trading day index (1, 2, 3) |
-| `timestamp` | integer | Tick within the day, 0 to 999 900 in steps of 100 ms |
-| `product` | string | Instrument symbol (`HYDROGEL_PACK`, `VELVETFRUIT_EXTRACT`, `VEV_{strike}`) |
-| `bid_price_{1,2,3}` | numeric | Top three bid levels in the order book |
-| `bid_volume_{1,2,3}` | integer | Resting volume at each bid level |
-| `ask_price_{1,2,3}` | numeric | Top three ask levels |
-| `ask_volume_{1,2,3}` | integer | Resting volume at each ask level |
-| `mid_price` | numeric | $(bid_1 + ask_1) / 2$, the price modelled throughout |
-| `profit_and_loss` | numeric | Running P&L for the algorithm (irrelevant to this analysis) |
+| File                         | Columns           | Rows                                        |
+|------------------------------|-------------------|---------------------------------------------|
+| `hydrogel_mid.csv`      | `t`, `mid_price`  | one per 100-ms tick across days 1-3 (~30 000) |
+| `velvetfruit_mid.csv`   | `t`, `mid_price`  | one per 100-ms tick across days 1-3 (~30 000) |
 
-Each `trades_round_4_day_{d}.csv` has columns `timestamp; buyer; seller; symbol; currency; price; quantity` — used only descriptively for the bot-behaviour discussion in earlier drafts and not for the formal model fits.
+`t` is a global tick index (1, 2, 3, …) running continuously across the three days. `mid_price` is $(bid_1 + ask_1) / 2$ from the original IMC `prices_round_4_day_{d}.csv` order-book snapshots, filtered to a single product. The cleaning script discards everything else (bid/ask depth, volumes, the per-algorithm `profit_and_loss` column, and the `VEV_{strike}` voucher rows). Trades data (`trades_round_4_day_{d}.csv`) are not used in this analysis.
 
 ## B. Glossary of statistical terms
 
@@ -434,20 +423,49 @@ The only non-base package required for the analysis is `TSA` (Cryer & Chan compa
 
 To re-knit:
 
-1.  Place `prices_round_4_day_{1, 2, 3}.csv` in `data/ROUND_4/`.
+1.  Ensure `data/hydrogel_mid.csv` and `data/velvetfruit_mid.csv` are present. They are produced by `scripts/clean_round4.R`, which reads the raw IMC `prices_round_4_day_{1, 2, 3}.csv` files. If the cleaned CSVs are already committed to the repo, this step can be skipped.
 2.  Open `Round4_Report.Rmd` in RStudio.
 3.  Click **Knit** (or run `rmarkdown::render("Round4_Report.Rmd")` from the console).
 
 The first knit will install `TSA` from CRAN if it is not already present.
+
+> **Runtime note.** With ~30 000 observations per series, `armasubsets()`, `BoxCox.ar()`, and the 1 000-path Monte Carlo block each take a noticeable moment. Total knit time on a modern laptop is roughly one to two minutes. While drafting, dropping the MC path count from 1 000 to 200 in the `fig16` chunk speeds iteration considerably.
 
 ## D. Full code listing
 
 ``` r
 library(TSA)
 
+# ----------------------------------------------------------
+# Hydrogel — stationary ARMA on the level
+# ----------------------------------------------------------
+hg    = read.csv("hydrogel_mid.csv")$mid_price
+n     = length(hg); k = floor(0.9 * n)
+train = hg[1:k]; test = hg[(k+1):n]
+
+# Identify
+acf(train); pacf(train); eacf(train)
+plot(armasubsets(train, nar = 6, nma = 6, ar.method = "ols"))
+
+# Fit candidates
+m1 = arima(train, order = c(1, 0, 0))   # AR(1)
+m2 = arima(train, order = c(0, 0, 1))   # MA(1) — bid-ask bounce
+m3 = arima(train, order = c(1, 0, 1))   # ARMA(1,1)
+rbind(AR1 = BIC(m1), MA1 = BIC(m2), ARMA11 = BIC(m3))
+
+# Forecast on level scale
+plot(m1, n.ahead = length(test))
+
+# ----------------------------------------------------------
+# Velvetfruit — ARIMA on log scale
+# ----------------------------------------------------------
+vf    = read.csv("velvetfruit_mid.csv")$mid_price
+n     = length(vf); k = floor(0.9 * n)
+train = vf[1:k]; test = vf[(k+1):n]
+
 # Variance + mean stabilisation
 bc = BoxCox.ar(train, lambda = seq(-2, 2, 0.1))
-y = log(train)                        # if 0 ∈ bc$ci
+y  = log(train)                        # if 0 ∈ bc$ci
 
 # Identify on differences
 acf(diff(y)); pacf(diff(y)); eacf(diff(y))
@@ -455,9 +473,8 @@ acf(diff(y)); pacf(diff(y)); eacf(diff(y))
 # Fit ARIMA(p, 1, q) candidates
 m1 = arima(y, order = c(0, 1, 0))     # random walk
 m2 = arima(y, order = c(0, 1, 1))     # +MA correction
-
 rbind(RW = BIC(m1), RW_MA = BIC(m2))
 
 # Forecast back to price scale
-plot(m1, n.ahead = length(test), transform = exp)
+plot(m2, n.ahead = length(test), transform = exp)
 ```
