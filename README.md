@@ -589,22 +589,16 @@ kept around so we can cross-check the forecast out-of-sample.
 
 ## 4.5 Diagnostics
 
-``` r
-tsdiag(m_vf, gof.lag = 20)
-```
-
-<div class="figure" style="text-align: center">
-
-<img src="README_files/figure-gfm/fig12-1.png" alt="Figure 12. tsdiag() page for the BIC-best velvetfruit model."  />
-<p class="caption">
-
-Figure 12. tsdiag() page for the BIC-best velvetfruit model.
-</p>
-
-</div>
-
-**Interpretation.** Same checks as for hydrogel — flat residuals, clean
-ACF, Ljung-Box p-values above 0.05.
+For ARIMA(0, 1, 0) the one-step residuals equal `diff(y)` minus the
+sample mean, so the residual time-plot and residual ACF are mechanically
+the same series we already inspected during identification — no new
+information. The joint Ljung-Box test on the residuals does flag the
+lag-3 spike (p = 0.006 at lag 5), but that is just the formal version of
+the visual feature already discussed in the ACF/PACF section, and
+neither ARIMA(1, 1, 0) nor ARIMA(0, 1, 1) can absorb it without a BIC
+penalty of 5.5 units. The one residual check that *is* new for any
+ARIMA(p, 1, q) is normality, since the prediction interval below assumes
+Normal innovations.
 
 ``` r
 qqnorm(residuals(m_vf)); qqline(residuals(m_vf))
@@ -612,17 +606,19 @@ qqnorm(residuals(m_vf)); qqline(residuals(m_vf))
 
 <div class="figure" style="text-align: center">
 
-<img src="README_files/figure-gfm/fig13-1.png" alt="Figure 13. Q-Q plot of residuals."  />
+<img src="README_files/figure-gfm/fig12-1.png" alt="Figure 12. Q-Q plot of residuals from the BIC-best velvetfruit model."  />
 <p class="caption">
 
-Figure 13. Q-Q plot of residuals.
+Figure 12. Q-Q plot of residuals from the BIC-best velvetfruit model.
 </p>
 
 </div>
 
-**Interpretation.** Mild heavy tails are expected for return-like
-residuals and don’t invalidate the autocorrelation-based diagnostics
-above.
+**Interpretation.** Residuals lie tight to the Normal line through the
+bulk of the distribution, with only a slight left-tail deviation around
+theoretical quantiles below −1.5 — far from the heavy-tailed shape that
+would worry us about prediction-interval calibration. Effectively Normal
+for inference purposes.
 
 ## 4.6 Forecasting
 
@@ -634,10 +630,10 @@ plot(m_vf, n.ahead = h, ylab = "Mid-price", xlab = "Tick",
 
 <div class="figure" style="text-align: center">
 
-<img src="README_files/figure-gfm/fig14a-1.png" alt="Figure 14a. plot.Arima() forecast for the BIC-best velvetfruit model with 95 percent prediction limits."  />
+<img src="README_files/figure-gfm/fig13a-1.png" alt="Figure 13a. plot.Arima() forecast for the BIC-best velvetfruit model with 95 percent prediction limits."  />
 <p class="caption">
 
-Figure 14a. plot.Arima() forecast for the BIC-best velvetfruit model
+Figure 13a. plot.Arima() forecast for the BIC-best velvetfruit model
 with 95 percent prediction limits.
 </p>
 
@@ -650,11 +646,11 @@ plot(m_vf2, n.ahead = h, ylab = "Mid-price", xlab = "Tick",
 
 <div class="figure" style="text-align: center">
 
-<img src="README_files/figure-gfm/fig14b-1.png" alt="Figure 14b. Same forecast page for the BIC runner-up. Compare against Figure 14a."  />
+<img src="README_files/figure-gfm/fig13b-1.png" alt="Figure 13b. Same forecast page for the BIC runner-up. Compare against Figure 13a."  />
 <p class="caption">
 
-Figure 14b. Same forecast page for the BIC runner-up. Compare against
-Figure 14a.
+Figure 13b. Same forecast page for the BIC runner-up. Compare against
+Figure 13a.
 </p>
 
 </div>
@@ -663,9 +659,9 @@ Figure 14a.
 level; the PI fans out at rate $\sqrt h$ because the process is
 non-stationary. The two figures should look near-identical for our
 candidate set (ARIMA(0, 1, 0) vs ARIMA(0, 1, 1) vs ARIMA(1, 1, 0)) — the
-point forecast for any (p, 1, q) model becomes the long-run mean almost
-immediately, and most of the visual difference is in how wide the band
-is rather than where the centre line goes.
+point forecast for any (p, 1, q) model converges to the last observed
+level almost immediately, and most of the visual difference is in how
+wide the band is rather than where the centre line goes.
 
 ``` r
 pr1 = predict(m_vf,  n.ahead = h)
@@ -721,10 +717,10 @@ lines(train, lwd = 2)
 
 <div class="figure" style="text-align: center">
 
-<img src="README_files/figure-gfm/fig15-1.png" alt="Figure 15. Twenty Monte Carlo paths from the fitted velvetfruit model (thin lines) overlaid on the actual training series (thick line)."  />
+<img src="README_files/figure-gfm/fig14-1.png" alt="Figure 14. Twenty Monte Carlo paths from the fitted velvetfruit model (thin lines) overlaid on the actual training series (thick line)."  />
 <p class="caption">
 
-Figure 15. Twenty Monte Carlo paths from the fitted velvetfruit model
+Figure 14. Twenty Monte Carlo paths from the fitted velvetfruit model
 (thin lines) overlaid on the actual training series (thick line).
 </p>
 
@@ -752,10 +748,10 @@ abline(v = toy(train), lwd = 2)
 
 <div class="figure" style="text-align: center">
 
-<img src="README_files/figure-gfm/fig16-1.png" alt="Figure 16. P&amp;L histogram for a toy mean-reversion rule applied to 1000 simulated paths. Vertical line — P&amp;L on the actual training data."  />
+<img src="README_files/figure-gfm/fig15-1.png" alt="Figure 15. P&amp;L histogram for a toy mean-reversion rule applied to 1000 simulated paths. Vertical line — P&amp;L on the actual training data."  />
 <p class="caption">
 
-Figure 16. P&L histogram for a toy mean-reversion rule applied to 1000
+Figure 15. P&L histogram for a toy mean-reversion rule applied to 1000
 simulated paths. Vertical line — P&L on the actual training data.
 </p>
 
