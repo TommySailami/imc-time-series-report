@@ -366,9 +366,11 @@ Figure 2. Velvetfruit mid-price. Dashed line — sample mean.
 
 </div>
 
-**Interpretation.** Velvetfruit drifts away and never returns — the mean
-is not constant. We will need to difference once before any ARMA
-identification can apply.
+**Interpretation.** Velvetfruit oscillates around its long-run mean but
+in slow ~50-tick swings that don’t fully revert within the window — the
+local mean drifts even though the global trajectory has no clear linear
+trend. That is enough non-stationarity to require one differencing step
+before ARMA identification.
 
 ``` r
 n = length(vf)
@@ -457,10 +459,20 @@ Figure 10b. PACF of differenced velvetfruit.
 
 </div>
 
-**Interpretation.** A single significant bar at lag 1 in the ACF (and
-nothing in the PACF) is the ARIMA(0, 1, 1) signature. All bars inside
-the band would mean the differenced series is white noise and a pure
-random walk ARIMA(0, 1, 0) suffices.
+**Interpretation.** Lags 1 and 2 sit well inside the ±0.12 band in both
+panels — there is no first- or second-order autocorrelation in the
+differences. The only striking feature is a negative spike at lag 3 (≈
+−0.22) that crosses the band in *both* the ACF and the PACF, with a
+borderline echo at lag 5; lags 6–10 are inside the band. A simultaneous
+matching spike at the same lag in ACF and PACF is not the textbook AR or
+MA cutoff signature — neither side tails off — so this does not point to
+a low-order ARIMA(p, 1, q) with p, q ≤ 2. Out of 10 lags inspected, one
+clear crossing plus one borderline crossing is roughly what white noise
+produces by chance at the 5 % level, so the most parsimonious read is
+that `diff(y)` is essentially uncorrelated and the level behaves like a
+pure random walk — ARIMA(0, 1, 0). We still fit ARIMA(0, 1, 1) and
+ARIMA(1, 1, 0) below as MA/AR-correction sanity checks against the
+random-walk null.
 
 ``` r
 eacf(diff(y), ar.max = 6, ma.max = 6)
