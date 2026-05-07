@@ -174,31 +174,21 @@ train = vf[1:k]
 test  = vf[(k+1):n]
 ```
 
-## Variance stabilisation — Box–Cox
+## Variance stabilisation
 
-```{r fig8, fig.cap="Figure 8. Box–Cox profile log-likelihood. Vertical references: lambda = 0 (log, dashed) and lambda = 1 (identity, dotted)."}
-bc = BoxCox.ar(train, lambda = seq(-2, 2, by = 0.1))
-abline(v = 0, lty = 2)
-abline(v = 1, lty = 3)
-bc$mle
-bc$ci
-```
+The standard Box–Jenkins recipe runs a Box–Cox check here to decide whether to model `log(price)` or the raw scale. Velvetfruit trades in a narrow ~2 % band over the three days, so variance is effectively constant across the price level — the Box–Cox profile likelihood is nearly flat in this regime, and log vs. identity give visually identical series and nearly identical inference. We skip the transform and model the raw scale; the ARIMA results below would be the same either way.
 
-**Interpretation.** If 0 lies inside the dashed CI band on the profile, we model `log(price)` — that turns the first difference into a log return whose variance is stable across price level. If 1 lies inside instead, the raw scale is fine.
-
-```{r vf-pick}
-use_log = 0 >= bc$ci[1] && 0 <= bc$ci[2]
-y = if (use_log) log(train) else train
-use_log
+```{r vf-y}
+y = train
 ```
 
 ## Differencing
 
-```{r fig9a, fig.cap="Figure 9a. Velvetfruit on the chosen modelling scale."}
-plot(y, type = "l", ylab = "", main = "Velvetfruit (modelling scale)")
+```{r fig8, fig.cap="Figure 8. Velvetfruit training series (raw scale)."}
+plot(y, type = "l", ylab = "Mid-price", main = "Velvetfruit — training set")
 ```
 
-```{r fig9b, fig.cap="Figure 9b. First difference of the modelling-scale series."}
+```{r fig9, fig.cap="Figure 9. First difference of the velvetfruit training series."}
 plot(diff(y), type = "l", ylab = "", main = "First difference")
 abline(h = 0, lty = 2)
 ```
@@ -274,36 +264,24 @@ qqnorm(residuals(m_vf)); qqline(residuals(m_vf))
 
 ## Forecasting
 
-```{r fig14a, fig.cap="Figure 14a. plot.Arima() forecast for the BIC-best velvetfruit model on the price scale (back-transformed via exp() if log was used)."}
+```{r fig14a, fig.cap="Figure 14a. plot.Arima() forecast for the BIC-best velvetfruit model with 95 percent prediction limits."}
 h = length(test)
-if (use_log) {
-  plot(m_vf, n.ahead = h, transform = exp, ylab = "Mid-price",
-       main = "Velvetfruit — BIC-best forecast")
-} else {
-  plot(m_vf, n.ahead = h, ylab = "Mid-price",
-       main = "Velvetfruit — BIC-best forecast")
-}
+plot(m_vf, n.ahead = h, ylab = "Mid-price",
+     main = "Velvetfruit — BIC-best forecast")
 ```
 
 ```{r fig14b, fig.cap="Figure 14b. Same forecast page for the BIC runner-up. Compare against Figure 14a."}
-if (use_log) {
-  plot(m_vf2, n.ahead = h, transform = exp, ylab = "Mid-price",
-       main = "Velvetfruit — runner-up forecast")
-} else {
-  plot(m_vf2, n.ahead = h, ylab = "Mid-price",
-       main = "Velvetfruit — runner-up forecast")
-}
+plot(m_vf2, n.ahead = h, ylab = "Mid-price",
+     main = "Velvetfruit — runner-up forecast")
 ```
 
-**Interpretation.** Point forecast flat-lines at the last observed level; the PI fans out at rate $\sqrt h$ because the process is non-stationary. Back-transforming through `exp` produces an asymmetric band on the price scale, wider above than below — a faithful reflection of the non-negative support of prices. The two figures should look near-identical for our candidate set (ARIMA(0, 1, 0) vs ARIMA(0, 1, 1) vs ARIMA(1, 1, 0)) — the point forecast for any (p, 1, q) model becomes the long-run mean almost immediately, and most of the visual difference is in how wide the band is rather than where the centre line goes.
+**Interpretation.** Point forecast flat-lines at the last observed level; the PI fans out at rate $\sqrt h$ because the process is non-stationary. The two figures should look near-identical for our candidate set (ARIMA(0, 1, 0) vs ARIMA(0, 1, 1) vs ARIMA(1, 1, 0)) — the point forecast for any (p, 1, q) model becomes the long-run mean almost immediately, and most of the visual difference is in how wide the band is rather than where the centre line goes.
 
 ```{r vf-mse}
-predict_back = function(model) {
-  pr = predict(model, n.ahead = h)
-  if (use_log) exp(pr$pred) else pr$pred
-}
-c(BIC_best  = mean((predict_back(m_vf)  - test)^2),
-  runner_up = mean((predict_back(m_vf2) - test)^2))
+pr1 = predict(m_vf,  n.ahead = h)
+pr2 = predict(m_vf2, n.ahead = h)
+c(BIC_best  = mean((pr1$pred - test)^2),
+  runner_up = mean((pr2$pred - test)^2))
 ```
 
 **Interpretation.** Test-set MSE on the price scale, both candidates side by side. The smaller MSE is the better out-of-sample forecaster. A near-tie is expected here: the three ARIMA(p, 1, q) candidates all flat-line at the last observed value, so their *point* forecasts are nearly identical and only the prediction-interval widths differ. Compared to the hydrogel MSE these should be much larger because non-stationary forecasts are inherently wider and the realised velvetfruit noise is orders of magnitude bigger.
@@ -329,8 +307,7 @@ sim_path = function() {
             rnorm(N - 1, sd = sigma)                       # pure random walk
           else
             arima.sim(model = mod_list, n = N - 1, sd = sigma)
-  y_path = c(y0, y0 + cumsum(innov))
-  if (use_log) exp(y_path) else y_path
+  c(y0, y0 + cumsum(innov))
 }
 
 paths = replicate(20, sim_path())
@@ -366,7 +343,7 @@ Both Round 4 series fit cleanly into the standard Box–Jenkins pipeline.
 
 **Hydrogel** is level-stationary; the EACF and BIC subset plot together pick a low-order ARMA, and the z-statistic check resolves any ARMA(1, 1)-vs-AR(1) ambiguity by parsimony. Forecasts revert to the sample mean.
 
-**Velvetfruit** is non-stationary; Box–Cox typically prefers the log scale, after which one differencing step yields ARIMA(0, 1, 1). Forecasts flat-line at the last observation with a $\sqrt h$-fanning prediction band on the price scale.
+**Velvetfruit** is non-stationary; one differencing step on the raw scale yields ARIMA(0, 1, 1). The price range is narrow enough (~2 %) that Box–Cox variance stabilisation contributes nothing, so we skip it. Forecasts flat-line at the last observation with a $\sqrt h$-fanning prediction band.
 
 The fitted models double as generators for **Monte Carlo backtesting**: simulated paths from `arima.sim()` give a P&L distribution that defines the noise floor against which any real strategy improvement should be measured.
 
@@ -454,24 +431,21 @@ rbind(AR1 = BIC(m1), MA1 = BIC(m2), ARMA11 = BIC(m3))
 plot(m1, n.ahead = length(test))
 
 # ----------------------------------------------------------
-# Velvetfruit — ARIMA on log scale
+# Velvetfruit — ARIMA on raw scale
 # ----------------------------------------------------------
+# Price range is narrow (~2%), so Box-Cox is uninformative — skip it.
 vf    = read.csv("velvetfruit_mid.csv")$mid_price
 n     = length(vf); k = floor(0.9 * n)
 train = vf[1:k]; test = vf[(k+1):n]
 
-# Variance + mean stabilisation
-bc = BoxCox.ar(train, lambda = seq(-2, 2, 0.1))
-y  = log(train)                        # if 0 ∈ bc$ci
-
 # Identify on differences
-acf(diff(y)); pacf(diff(y)); eacf(diff(y))
+acf(diff(train)); pacf(diff(train)); eacf(diff(train))
 
 # Fit ARIMA(p, 1, q) candidates
-m1 = arima(y, order = c(0, 1, 0))     # random walk
-m2 = arima(y, order = c(0, 1, 1))     # +MA correction
+m1 = arima(train, order = c(0, 1, 0))   # random walk
+m2 = arima(train, order = c(0, 1, 1))   # +MA correction
 rbind(RW = BIC(m1), RW_MA = BIC(m2))
 
-# Forecast back to price scale
-plot(m2, n.ahead = length(test), transform = exp)
+# Forecast on price scale
+plot(m2, n.ahead = length(test))
 ```

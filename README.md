@@ -11,8 +11,7 @@ May 07, 2026
   - [3.3 Diagnostics](#33-diagnostics)
   - [3.4 Forecasting](#34-forecasting)
 - [4 Velvetfruit Extract](#4-velvetfruit-extract)
-  - [4.1 Variance stabilisation —
-    Box–Cox](#41-variance-stabilisation--boxcox)
+  - [4.1 Variance stabilisation](#41-variance-stabilisation)
   - [4.2 Differencing](#42-differencing)
   - [4.3 Identification on the differenced
     series](#43-identification-on-the-differenced-series)
@@ -378,62 +377,32 @@ train = vf[1:k]
 test  = vf[(k+1):n]
 ```
 
-## 4.1 Variance stabilisation — Box–Cox
+## 4.1 Variance stabilisation
+
+The standard Box–Jenkins recipe runs a Box–Cox check here to decide
+whether to model `log(price)` or the raw scale. Velvetfruit trades in a
+narrow ~2 % band over the three days, so variance is effectively
+constant across the price level — the Box–Cox profile likelihood is
+nearly flat in this regime, and log vs. identity give visually identical
+series and nearly identical inference. We skip the transform and model
+the raw scale; the ARIMA results below would be the same either way.
 
 ``` r
-bc = BoxCox.ar(train, lambda = seq(-2, 2, by = 0.1))
-abline(v = 0, lty = 2)
-abline(v = 1, lty = 3)
+y = train
 ```
-
-<div class="figure" style="text-align: center">
-
-<img src="README_files/figure-gfm/fig8-1.png" alt="Figure 8. Box–Cox profile log-likelihood. Vertical references: lambda = 0 (log, dashed) and lambda = 1 (identity, dotted)."  />
-<p class="caption">
-
-Figure 8. Box–Cox profile log-likelihood. Vertical references: lambda =
-0 (log, dashed) and lambda = 1 (identity, dotted).
-</p>
-
-</div>
-
-``` r
-bc$mle
-```
-
-    ## [1] 0.2
-
-``` r
-bc$ci
-```
-
-    ## [1] -2  2
-
-**Interpretation.** If 0 lies inside the dashed CI band on the profile,
-we model `log(price)` — that turns the first difference into a log
-return whose variance is stable across price level. If 1 lies inside
-instead, the raw scale is fine.
-
-``` r
-use_log = 0 >= bc$ci[1] && 0 <= bc$ci[2]
-y = if (use_log) log(train) else train
-use_log
-```
-
-    ## [1] TRUE
 
 ## 4.2 Differencing
 
 ``` r
-plot(y, type = "l", ylab = "", main = "Velvetfruit (modelling scale)")
+plot(y, type = "l", ylab = "Mid-price", main = "Velvetfruit — training set")
 ```
 
 <div class="figure" style="text-align: center">
 
-<img src="README_files/figure-gfm/fig9a-1.png" alt="Figure 9a. Velvetfruit on the chosen modelling scale."  />
+<img src="README_files/figure-gfm/fig8-1.png" alt="Figure 8. Velvetfruit training series (raw scale)."  />
 <p class="caption">
 
-Figure 9a. Velvetfruit on the chosen modelling scale.
+Figure 8. Velvetfruit training series (raw scale).
 </p>
 
 </div>
@@ -445,10 +414,10 @@ abline(h = 0, lty = 2)
 
 <div class="figure" style="text-align: center">
 
-<img src="README_files/figure-gfm/fig9b-1.png" alt="Figure 9b. First difference of the modelling-scale series."  />
+<img src="README_files/figure-gfm/fig9-1.png" alt="Figure 9. First difference of the velvetfruit training series."  />
 <p class="caption">
 
-Figure 9b. First difference of the modelling-scale series.
+Figure 9. First difference of the velvetfruit training series.
 </p>
 
 </div>
@@ -551,10 +520,10 @@ rbind(
 )
 ```
 
-    ##                    AIC       BIC
-    ## ARIMA(0,1,0) -2676.672 -2673.077
-    ## ARIMA(0,1,1) -2674.711 -2667.521
-    ## ARIMA(1,1,0) -2674.713 -2667.524
+    ##                   AIC      BIC
+    ## ARIMA(0,1,0) 1931.593 1935.188
+    ## ARIMA(0,1,1) 1933.554 1940.743
+    ## ARIMA(1,1,0) 1933.551 1940.741
 
 **Interpretation.** ARIMA(0, 1, 1) typically wins. A non-zero MA
 coefficient says last period’s innovation has lasting impact on the
@@ -585,7 +554,7 @@ m_vf
     ## arima(x = y, order = c(0, 1, 0))
     ## 
     ## 
-    ## sigma^2 estimated as 2.772e-06:  log likelihood = 1339.34,  aic = -2678.67
+    ## sigma^2 estimated as 76.35:  log likelihood = -964.8,  aic = 1929.59
 
 **Interpretation.** `m_vf` is the BIC winner; `m_vf2` is the runner-up,
 kept around so we can cross-check the forecast out-of-sample.
@@ -631,34 +600,24 @@ above.
 
 ``` r
 h = length(test)
-if (use_log) {
-  plot(m_vf, n.ahead = h, transform = exp, ylab = "Mid-price",
-       main = "Velvetfruit — BIC-best forecast")
-} else {
-  plot(m_vf, n.ahead = h, ylab = "Mid-price",
-       main = "Velvetfruit — BIC-best forecast")
-}
+plot(m_vf, n.ahead = h, ylab = "Mid-price",
+     main = "Velvetfruit — BIC-best forecast")
 ```
 
 <div class="figure" style="text-align: center">
 
-<img src="README_files/figure-gfm/fig14a-1.png" alt="Figure 14a. plot.Arima() forecast for the BIC-best velvetfruit model on the price scale (back-transformed via exp() if log was used)."  />
+<img src="README_files/figure-gfm/fig14a-1.png" alt="Figure 14a. plot.Arima() forecast for the BIC-best velvetfruit model with 95 percent prediction limits."  />
 <p class="caption">
 
-Figure 14a. plot.Arima() forecast for the BIC-best velvetfruit model on
-the price scale (back-transformed via exp() if log was used).
+Figure 14a. plot.Arima() forecast for the BIC-best velvetfruit model
+with 95 percent prediction limits.
 </p>
 
 </div>
 
 ``` r
-if (use_log) {
-  plot(m_vf2, n.ahead = h, transform = exp, ylab = "Mid-price",
-       main = "Velvetfruit — runner-up forecast")
-} else {
-  plot(m_vf2, n.ahead = h, ylab = "Mid-price",
-       main = "Velvetfruit — runner-up forecast")
-}
+plot(m_vf2, n.ahead = h, ylab = "Mid-price",
+     main = "Velvetfruit — runner-up forecast")
 ```
 
 <div class="figure" style="text-align: center">
@@ -674,25 +633,21 @@ Figure 14a.
 
 **Interpretation.** Point forecast flat-lines at the last observed
 level; the PI fans out at rate $\sqrt h$ because the process is
-non-stationary. Back-transforming through `exp` produces an asymmetric
-band on the price scale, wider above than below — a faithful reflection
-of the non-negative support of prices. The two figures should look
-near-identical for our candidate set (ARIMA(0, 1, 0) vs ARIMA(0, 1, 1)
-vs ARIMA(1, 1, 0)) — the point forecast for any (p, 1, q) model becomes
-the long-run mean almost immediately, and most of the visual difference
-is in how wide the band is rather than where the centre line goes.
+non-stationary. The two figures should look near-identical for our
+candidate set (ARIMA(0, 1, 0) vs ARIMA(0, 1, 1) vs ARIMA(1, 1, 0)) — the
+point forecast for any (p, 1, q) model becomes the long-run mean almost
+immediately, and most of the visual difference is in how wide the band
+is rather than where the centre line goes.
 
 ``` r
-predict_back = function(model) {
-  pr = predict(model, n.ahead = h)
-  if (use_log) exp(pr$pred) else pr$pred
-}
-c(BIC_best  = mean((predict_back(m_vf)  - test)^2),
-  runner_up = mean((predict_back(m_vf2) - test)^2))
+pr1 = predict(m_vf,  n.ahead = h)
+pr2 = predict(m_vf2, n.ahead = h)
+c(BIC_best  = mean((pr1$pred - test)^2),
+  runner_up = mean((pr2$pred - test)^2))
 ```
 
     ##  BIC_best runner_up 
-    ##  214.5833  217.2348
+    ##  214.5833  217.2619
 
 **Interpretation.** Test-set MSE on the price scale, both candidates
 side by side. The smaller MSE is the better out-of-sample forecaster. A
@@ -724,8 +679,7 @@ sim_path = function() {
             rnorm(N - 1, sd = sigma)                       # pure random walk
           else
             arima.sim(model = mod_list, n = N - 1, sd = sigma)
-  y_path = c(y0, y0 + cumsum(innov))
-  if (use_log) exp(y_path) else y_path
+  c(y0, y0 + cumsum(innov))
 }
 
 paths = replicate(20, sim_path())
@@ -794,10 +748,11 @@ Both Round 4 series fit cleanly into the standard Box–Jenkins pipeline.
 pick a low-order ARMA, and the z-statistic check resolves any ARMA(1,
 1)-vs-AR(1) ambiguity by parsimony. Forecasts revert to the sample mean.
 
-**Velvetfruit** is non-stationary; Box–Cox typically prefers the log
-scale, after which one differencing step yields ARIMA(0, 1, 1).
+**Velvetfruit** is non-stationary; one differencing step on the raw
+scale yields ARIMA(0, 1, 1). The price range is narrow enough (~2 %)
+that Box–Cox variance stabilisation contributes nothing, so we skip it.
 Forecasts flat-line at the last observation with a $\sqrt h$-fanning
-prediction band on the price scale.
+prediction band.
 
 The fitted models double as generators for **Monte Carlo backtesting**:
 simulated paths from `arima.sim()` give a P&L distribution that defines
@@ -935,24 +890,21 @@ rbind(AR1 = BIC(m1), MA1 = BIC(m2), ARMA11 = BIC(m3))
 plot(m1, n.ahead = length(test))
 
 # ----------------------------------------------------------
-# Velvetfruit — ARIMA on log scale
+# Velvetfruit — ARIMA on raw scale
 # ----------------------------------------------------------
+# Price range is narrow (~2%), so Box-Cox is uninformative — skip it.
 vf    = read.csv("velvetfruit_mid.csv")$mid_price
 n     = length(vf); k = floor(0.9 * n)
 train = vf[1:k]; test = vf[(k+1):n]
 
-# Variance + mean stabilisation
-bc = BoxCox.ar(train, lambda = seq(-2, 2, 0.1))
-y  = log(train)                        # if 0 ∈ bc$ci
-
 # Identify on differences
-acf(diff(y)); pacf(diff(y)); eacf(diff(y))
+acf(diff(train)); pacf(diff(train)); eacf(diff(train))
 
 # Fit ARIMA(p, 1, q) candidates
-m1 = arima(y, order = c(0, 1, 0))     # random walk
-m2 = arima(y, order = c(0, 1, 1))     # +MA correction
+m1 = arima(train, order = c(0, 1, 0))   # random walk
+m2 = arima(train, order = c(0, 1, 1))   # +MA correction
 rbind(RW = BIC(m1), RW_MA = BIC(m2))
 
-# Forecast back to price scale
-plot(m2, n.ahead = length(test), transform = exp)
+# Forecast on price scale
+plot(m2, n.ahead = length(test))
 ```
