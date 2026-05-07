@@ -885,10 +885,11 @@ sessionInfo()
     ## loaded via a namespace (and not attached):
     ##  [1] digest_0.6.37     fastmap_1.2.0     Matrix_1.7-1      mgcv_1.9-1       
     ##  [5] xfun_0.50         lattice_0.22-6    splines_4.4.2     leaps_3.2        
-    ##  [9] knitr_1.49        htmltools_0.5.8.1 rmarkdown_2.29    cli_3.6.3        
-    ## [13] grid_4.4.2        compiler_4.4.2    rstudioapi_0.17.1 tools_4.4.2      
-    ## [17] nlme_3.1-166      evaluate_1.0.3    yaml_2.3.10       locfit_1.5-9.12  
-    ## [21] rlang_1.1.4
+    ##  [9] knitr_1.49        htmltools_0.5.8.1 rmarkdown_2.29    lifecycle_1.0.4  
+    ## [13] cli_3.6.3         grid_4.4.2        textshaping_0.4.1 systemfonts_1.1.0
+    ## [17] compiler_4.4.2    rstudioapi_0.17.1 tools_4.4.2       ragg_1.5.1       
+    ## [21] nlme_3.1-166      evaluate_1.0.3    yaml_2.3.10       locfit_1.5-9.12  
+    ## [25] rlang_1.1.4
 
 The only non-base package required for the analysis is `TSA` (Cryer &
 Chan companion). All ARIMA fits use base-R `arima()`; all forecasts use
