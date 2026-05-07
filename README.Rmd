@@ -7,20 +7,20 @@ output:
   github_document:
     toc: true
     number_sections: true
-    dpi: 300
 
   html_document:
     toc: true
     number_sections: true
-    fig_width: 9
-    fig_height: 5
-    fig_retina: 2
+    fig_width: 10
+    fig_height: 6
+    fig_retina: 3
     theme: cosmo
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
-                      fig.align = "center", dpi = 300)
+                      fig.align = "center", dpi = 600,
+                      dev = c("png", "svg"))
 library(TSA)
 ```
 
@@ -50,9 +50,10 @@ abline(h = mean(hg), lty = 2)
 
 **Interpretation.** Hydrogel oscillates within a tight band around its mean with no visible drift or fanning — level-stationary, so a plain ARMA on the level should be enough.
 
-```{r fig2, fig.cap="Figure 2. Velvetfruit mid-price."}
+```{r fig2, fig.cap="Figure 2. Velvetfruit mid-price. Dashed line — sample mean."}
 plot(vf, type = "l", ylab = "Mid-price", xlab = "Tick index",
      main = "Velvetfruit Extract")
+abline(h = mean(vf), lty = 2)
 ```
 
 **Interpretation.** Velvetfruit drifts away and never returns — the mean is not constant. We will need to difference once before any ARMA identification can apply.
