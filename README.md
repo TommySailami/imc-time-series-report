@@ -11,13 +11,12 @@ May 07, 2026
   - [3.3 Diagnostics](#33-diagnostics)
   - [3.4 Forecasting](#34-forecasting)
 - [4 Velvetfruit Extract](#4-velvetfruit-extract)
-  - [4.1 Variance stabilisation](#41-variance-stabilisation)
-  - [4.2 Differencing](#42-differencing)
-  - [4.3 Identification on the differenced
-    series](#43-identification-on-the-differenced-series)
-  - [4.4 Estimation](#44-estimation)
-  - [4.5 Diagnostics](#45-diagnostics)
-  - [4.6 Forecasting](#46-forecasting)
+  - [4.1 Differencing](#41-differencing)
+  - [4.2 Identification on the differenced
+    series](#42-identification-on-the-differenced-series)
+  - [4.3 Estimation](#43-estimation)
+  - [4.4 Diagnostics](#44-diagnostics)
+  - [4.5 Forecasting](#45-forecasting)
 - [5 Monte Carlo Simulation](#5-monte-carlo-simulation)
 - [6 Conclusions](#6-conclusions)
 - [7 References](#7-references)
@@ -377,21 +376,11 @@ train = vf[1:k]
 test  = vf[(k+1):n]
 ```
 
-## 4.1 Variance stabilisation
-
-The standard Box–Jenkins recipe runs a Box–Cox check here to decide
-whether to model `log(price)` or the raw scale. Velvetfruit trades in a
-narrow ~2 % band over the three days, so variance is effectively
-constant across the price level — the Box–Cox profile likelihood is
-nearly flat in this regime, and log vs. identity give visually identical
-series and nearly identical inference. We skip the transform and model
-the raw scale; the ARIMA results below would be the same either way.
-
 ``` r
 y = train
 ```
 
-## 4.2 Differencing
+## 4.1 Differencing
 
 ``` r
 plot(y, type = "l", ylab = "Mid-price", xlab = "Tick",
@@ -427,7 +416,7 @@ Figure 9. First difference of the velvetfruit training series.
 with stable spread; if it still trends, difference again. For
 velvetfruit one difference is enough.
 
-## 4.3 Identification on the differenced series
+## 4.2 Identification on the differenced series
 
 ``` r
 acf(diff(y), lag.max = 40, main = "ACF — diff(y)")
@@ -507,7 +496,7 @@ only `lag-1-MA` is shaded the data prefer ARIMA(0, 1, 1); if nothing is
 shaded ARIMA(0, 1, 0) wins. The AIC/BIC table next gives the same answer
 numerically.
 
-## 4.4 Estimation
+## 4.3 Estimation
 
 ``` r
 m1 = arima(y, order = c(0, 1, 0))   # ARIMA(0,1,0) — pure random walk
@@ -560,7 +549,7 @@ m_vf
 **Interpretation.** `m_vf` is the BIC winner; `m_vf2` is the runner-up,
 kept around so we can cross-check the forecast out-of-sample.
 
-## 4.5 Diagnostics
+## 4.4 Diagnostics
 
 ``` r
 tsdiag(m_vf, gof.lag = 20)
@@ -597,7 +586,7 @@ Figure 13. Q-Q plot of residuals.
 residuals and don’t invalidate the autocorrelation-based diagnostics
 above.
 
-## 4.6 Forecasting
+## 4.5 Forecasting
 
 ``` r
 h = length(test)

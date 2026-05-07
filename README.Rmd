@@ -174,10 +174,6 @@ train = vf[1:k]
 test  = vf[(k+1):n]
 ```
 
-## Variance stabilisation
-
-The standard Box–Jenkins recipe runs a Box–Cox check here to decide whether to model `log(price)` or the raw scale. Velvetfruit trades in a narrow ~2 % band over the three days, so variance is effectively constant across the price level — the Box–Cox profile likelihood is nearly flat in this regime, and log vs. identity give visually identical series and nearly identical inference. We skip the transform and model the raw scale; the ARIMA results below would be the same either way.
-
 ```{r vf-y}
 y = train
 ```
