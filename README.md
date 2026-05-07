@@ -548,9 +548,14 @@ rbind(
     ## ARIMA(0,1,1) 1933.554 1940.743
     ## ARIMA(1,1,0) 1933.551 1940.741
 
-**Interpretation.** ARIMA(0, 1, 1) typically wins. A non-zero MA
-coefficient says last period’s innovation has lasting impact on the
-level; a coefficient near zero collapses back to the pure random walk.
+**Interpretation.** ARIMA(0, 1, 0) wins decisively here: BIC = 1935.19
+versus 1940.74 for both ARIMA(0, 1, 1) and ARIMA(1, 1, 0), a gap of 5.55
+units (above 4 is decisive). Even the lighter-penalty AIC also picks the
+random walk. The reason is visible directly in the coefficients — the
+fitted ma₁ ≈ 0.012 (z ≈ 0.20) and ar₁ ≈ 0.013 (z ≈ 0.21) are both
+statistically indistinguishable from zero, so the more complex models
+pay a BIC penalty for a parameter the data don’t need. Verdict: the
+velvetfruit level is a pure random walk on this training window.
 
 ``` r
 vf_models = list("ARIMA(0,1,0)" = m1, "ARIMA(0,1,1)" = m2, "ARIMA(1,1,0)" = m3)
