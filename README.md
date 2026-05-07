@@ -409,7 +409,7 @@ Figure 8. Velvetfruit training series (raw scale).
 </div>
 
 ``` r
-plot(diff(y), type = "l", ylab = "", xlab = "Tick", main = "First difference")
+plot(diff(vf), type = "l", ylab = "", xlab = "Tick", main = "First difference")
 abline(h = 0, lty = 2)
 ```
 
