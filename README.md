@@ -61,6 +61,8 @@ bar sits near 0.998 and the identification tools are uninformative; the
 decimation gives the standard textbook ACF/PACF picture without losing
 the trend. See Appendix A.
 
+# 3 Hydrogel Packets
+
 ``` r
 plot(hg, type = "l", ylab = "Mid-price", xlab = "Tick",
      main = "Hydrogel Packets")
@@ -80,28 +82,6 @@ Figure 1. Hydrogel mid-price over three days. Dashed line — sample mean.
 **Interpretation.** Hydrogel oscillates within a tight band around its
 mean with no visible drift or fanning — level-stationary, so a plain
 ARMA on the level should be enough.
-
-``` r
-plot(vf, type = "l", ylab = "Mid-price", xlab = "Tick",
-     main = "Velvetfruit Extract")
-abline(h = mean(vf), lty = 2)
-```
-
-<div class="figure" style="text-align: center">
-
-<img src="README_files/figure-gfm/fig2-1.png" alt="Figure 2. Velvetfruit mid-price. Dashed line — sample mean."  />
-<p class="caption">
-
-Figure 2. Velvetfruit mid-price. Dashed line — sample mean.
-</p>
-
-</div>
-
-**Interpretation.** Velvetfruit drifts away and never returns — the mean
-is not constant. We will need to difference once before any ARMA
-identification can apply.
-
-# 3 Hydrogel Packets
 
 ``` r
 n = length(hg)
@@ -370,6 +350,26 @@ sample — note it but stick with the BIC pick on parsimony grounds unless
 the gap is large.
 
 # 4 Velvetfruit Extract
+
+``` r
+plot(vf, type = "l", ylab = "Mid-price", xlab = "Tick",
+     main = "Velvetfruit Extract")
+abline(h = mean(vf), lty = 2)
+```
+
+<div class="figure" style="text-align: center">
+
+<img src="README_files/figure-gfm/fig2-1.png" alt="Figure 2. Velvetfruit mid-price. Dashed line — sample mean."  />
+<p class="caption">
+
+Figure 2. Velvetfruit mid-price. Dashed line — sample mean.
+</p>
+
+</div>
+
+**Interpretation.** Velvetfruit drifts away and never returns — the mean
+is not constant. We will need to difference once before any ARMA
+identification can apply.
 
 ``` r
 n = length(vf)

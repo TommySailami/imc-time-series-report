@@ -35,6 +35,8 @@ vf = read.csv("velvetfruit_mid.csv")$mid_price
 
 Each cleaned CSV is a pre-decimated mid-price series at 10-second spacing — ~300 rows per product, derived by keeping every 100th 100-ms tick across the three Round 4 days. At full tick resolution every ACF bar sits near 0.998 and the identification tools are uninformative; the decimation gives the standard textbook ACF/PACF picture without losing the trend. See Appendix A.
 
+# Hydrogel Packets
+
 ```{r fig1, fig.cap="Figure 1. Hydrogel mid-price over three days. Dashed line — sample mean."}
 plot(hg, type = "l", ylab = "Mid-price", xlab = "Tick",
      main = "Hydrogel Packets")
@@ -42,16 +44,6 @@ abline(h = mean(hg), lty = 2)
 ```
 
 **Interpretation.** Hydrogel oscillates within a tight band around its mean with no visible drift or fanning — level-stationary, so a plain ARMA on the level should be enough.
-
-```{r fig2, fig.cap="Figure 2. Velvetfruit mid-price. Dashed line — sample mean."}
-plot(vf, type = "l", ylab = "Mid-price", xlab = "Tick",
-     main = "Velvetfruit Extract")
-abline(h = mean(vf), lty = 2)
-```
-
-**Interpretation.** Velvetfruit drifts away and never returns — the mean is not constant. We will need to difference once before any ARMA identification can apply.
-
-# Hydrogel Packets
 
 ```{r hg-split}
 n = length(hg)
@@ -166,6 +158,14 @@ c(BIC_best  = mean((pr1$pred - test)^2),
 **Interpretation.** Test-set MSE for both candidates. The smaller value is the better out-of-sample forecaster. If the BIC-best wins, in-sample and out-of-sample agree and we are confident in the choice. If the runner-up wins, the BIC penalty was too aggressive for this particular sample — note it but stick with the BIC pick on parsimony grounds unless the gap is large.
 
 # Velvetfruit Extract
+
+```{r fig2, fig.cap="Figure 2. Velvetfruit mid-price. Dashed line — sample mean."}
+plot(vf, type = "l", ylab = "Mid-price", xlab = "Tick",
+     main = "Velvetfruit Extract")
+abline(h = mean(vf), lty = 2)
+```
+
+**Interpretation.** Velvetfruit drifts away and never returns — the mean is not constant. We will need to difference once before any ARMA identification can apply.
 
 ```{r vf-split}
 n = length(vf)
