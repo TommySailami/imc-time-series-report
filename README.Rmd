@@ -190,7 +190,7 @@ plot(y, type = "l", ylab = "Mid-price", xlab = "Tick",
 ```
 
 ```{r fig9, fig.cap="Figure 9. First difference of the velvetfruit training series."}
-plot(diff(vf), type = "l", ylab = "", xlab = "Tick", main = "First difference")
+plot(diff(y), type = "l", ylab = "", xlab = "Tick", main = "First difference")
 abline(h = 0, lty = 2)
 ```
 
