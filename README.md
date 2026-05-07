@@ -152,12 +152,12 @@ eacf(train, ar.max = 6, ma.max = 6)
     ## AR/MA
     ##   0 1 2 3 4 5 6
     ## 0 x x x x x x x
-    ## 1 x o o o o o o
-    ## 2 x x o o o o o
-    ## 3 x o x o o o o
-    ## 4 x x x x o o o
-    ## 5 x x x x o o o
-    ## 6 x x x x o x o
+    ## 1 x o o o o o x
+    ## 2 x x o o o o x
+    ## 3 x o o o o o x
+    ## 4 o o o o o o o
+    ## 5 x o o o o o o
+    ## 6 o o o o x o o
 
 **Interpretation.** Find the upper-left corner of the triangle of `o`’s
 — that gives the candidate (p, q). For tick-level mid-price data the
@@ -205,10 +205,10 @@ rbind(
 ```
 
     ##                 AIC      BIC
-    ## AR(1)      118452.3 118476.9
-    ## AR(2)      118040.8 118073.7
-    ## MA(1)      233220.0 233244.6
-    ## ARMA(1, 1) 118042.9 118075.7
+    ## AR(1)      2337.813 2348.608
+    ## AR(2)      2336.230 2350.623
+    ## MA(1)      2502.394 2513.189
+    ## ARMA(1, 1) 2335.036 2349.430
 
 **Interpretation.** Smallest BIC wins; differences under 2 are noise, 4+
 are decisive. BIC’s heavier complexity penalty often picks AR(1) or
@@ -223,9 +223,9 @@ c("AR(1) phi₁"      = z_stat(m1, "ar1"),
 ```
 
     ##       AR(1) phi₁.ar1       AR(2) phi₂.ar2     MA(1) theta₁.ma1 
-    ##           2647.67041             20.41432            704.54148 
+    ##            27.154612             1.900349            20.636729 
     ## ARMA(1,1) theta₁.ma1 
-    ##            -20.50266
+    ##            -2.274284
 
 **Interpretation.** $|z| < 2$ means “not significant” — you can drop
 that term. If `ARMA(1,1) theta₁` is below 2 in absolute value, the extra
@@ -240,7 +240,7 @@ hg_second = hg_models[[ ord[2] ]]
 cat("BIC-best:  ", names(hg_models)[ord[1]], "\n")
 ```
 
-    ## BIC-best:   AR(2)
+    ## BIC-best:   AR(1)
 
 ``` r
 cat("Runner-up: ", names(hg_models)[ord[2]], "\n")
@@ -254,14 +254,14 @@ hg_best
 
     ## 
     ## Call:
-    ## arima(x = train, order = c(2, 0, 0))
+    ## arima(x = train, order = c(1, 0, 0))
     ## 
     ## Coefficients:
-    ##         ar1     ar2  intercept
-    ##       0.875  0.1233  9997.2810
-    ## s.e.  0.006  0.0060     7.3773
+    ##          ar1  intercept
+    ##       0.8544  9995.7879
+    ## s.e.  0.0315     7.4249
     ## 
-    ## sigma^2 estimated as 4.634:  log likelihood = -59016.42,  aic = 118038.8
+    ## sigma^2 estimated as 328.2:  log likelihood = -1165.91,  aic = 2335.81
 
 **Interpretation.** `hg_best` is the BIC-best fitted model; `hg_second`
 is the runner-up by BIC, kept around as a sanity check — if its forecast
@@ -357,7 +357,7 @@ c(BIC_best  = mean((pr1$pred - test)^2),
 ```
 
     ##  BIC_best runner_up 
-    ##  976.8386  971.3133
+    ##  883.9214  773.4620
 
 **Interpretation.** Test-set MSE for both candidates. The smaller value
 is the better out-of-sample forecaster. If the BIC-best wins, in-sample
@@ -398,13 +398,13 @@ Figure 8. Box–Cox profile log-likelihood. Vertical references: lambda =
 bc$mle
 ```
 
-    ## [1] 2
+    ## [1] 0.2
 
 ``` r
 bc$ci
 ```
 
-    ## [1] -0.5  2.0
+    ## [1] -2  2
 
 **Interpretation.** If 0 lies inside the dashed CI band on the profile,
 we model `log(price)` — that turns the first difference into a log
@@ -495,13 +495,13 @@ eacf(diff(y), ar.max = 6, ma.max = 6)
 
     ## AR/MA
     ##   0 1 2 3 4 5 6
-    ## 0 x o o o o o o
-    ## 1 x x o o o o o
-    ## 2 x x x o o o o
-    ## 3 x x x x o o o
-    ## 4 x x x o x o o
-    ## 5 x x x o x x o
-    ## 6 x x x x x x o
+    ## 0 o o x o o o o
+    ## 1 x o x o o o o
+    ## 2 x o x o x o o
+    ## 3 o x o o x o o
+    ## 4 x x o x x o o
+    ## 5 x x x x o o o
+    ## 6 o x x o o o o
 
 **Interpretation.** For a differenced asset price the vertex typically
 lands at (0, 0) (random walk) or (0, 1) (random walk plus MA
@@ -549,9 +549,9 @@ rbind(
 ```
 
     ##                    AIC       BIC
-    ## ARIMA(0,1,0) -378961.4 -378953.2
-    ## ARIMA(0,1,1) -379708.2 -379691.8
-    ## ARIMA(1,1,0) -379675.6 -379659.2
+    ## ARIMA(0,1,0) -2676.672 -2673.077
+    ## ARIMA(0,1,1) -2674.711 -2667.521
+    ## ARIMA(1,1,0) -2674.713 -2667.524
 
 **Interpretation.** ARIMA(0, 1, 1) typically wins. A non-zero MA
 coefficient says last period’s innovation has lasting impact on the
@@ -565,7 +565,7 @@ m_vf2     = vf_models[[ ord[2] ]]
 cat("BIC-best:  ", names(vf_models)[ord[1]], "\n")
 ```
 
-    ## BIC-best:   ARIMA(0,1,1)
+    ## BIC-best:   ARIMA(0,1,0)
 
 ``` r
 cat("Runner-up: ", names(vf_models)[ord[2]], "\n")
@@ -579,14 +579,10 @@ m_vf
 
     ## 
     ## Call:
-    ## arima(x = y, order = c(0, 1, 1))
+    ## arima(x = y, order = c(0, 1, 0))
     ## 
-    ## Coefficients:
-    ##          ma1
-    ##       -0.169
-    ## s.e.   0.006
     ## 
-    ## sigma^2 estimated as 4.567e-08:  log likelihood = 189856.1,  aic = -379710.2
+    ## sigma^2 estimated as 2.772e-06:  log likelihood = 1339.34,  aic = -2678.67
 
 **Interpretation.** `m_vf` is the BIC winner; `m_vf2` is the runner-up,
 kept around so we can cross-check the forecast out-of-sample.
@@ -693,7 +689,7 @@ c(BIC_best  = mean((predict_back(m_vf)  - test)^2),
 ```
 
     ##  BIC_best runner_up 
-    ##  160.0344  160.1072
+    ##  214.5833  217.2348
 
 **Interpretation.** Test-set MSE on the price scale, both candidates
 side by side. The smaller MSE is the better out-of-sample forecaster. A

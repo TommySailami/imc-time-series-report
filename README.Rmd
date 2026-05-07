@@ -7,18 +7,20 @@ output:
   github_document:
     toc: true
     number_sections: true
+    dpi: 300
 
   html_document:
     toc: true
     number_sections: true
-    fig_width: 7
-    fig_height: 4
+    fig_width: 9
+    fig_height: 5
+    fig_retina: 2
     theme: cosmo
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
-                      fig.align = "center")
+                      fig.align = "center", dpi = 300)
 library(TSA)
 ```
 
@@ -38,7 +40,7 @@ hg = read.csv("hydrogel_mid.csv")$mid_price
 vf = read.csv("velvetfruit_mid.csv")$mid_price
 ```
 
-Each series is the full 100-ms-tick mid-price for the named product across the three Round 4 days — roughly 30 000 observations apiece. The raw IMC order-book dumps were pre-processed by `scripts/clean_round4.R` into two-column (`t`, `mid_price`) CSVs; see Appendix A.
+Each cleaned CSV is a pre-decimated mid-price series at 10-second spacing — ~300 rows per product, derived by keeping every 100th 100-ms tick across the three Round 4 days. At full tick resolution every ACF bar sits near 0.998 and the identification tools are uninformative; the decimation gives the standard textbook ACF/PACF picture without losing the trend. See Appendix A.
 
 ```{r fig1, fig.cap="Figure 1. Hydrogel mid-price over three days. Dashed line — sample mean."}
 plot(hg, type = "l", ylab = "Mid-price", xlab = "Tick index",
@@ -76,7 +78,7 @@ acf(train, lag.max = 40, main = "ACF — hydrogel")
 pacf(train, lag.max = 40, main = "PACF — hydrogel")
 ```
 
-**Interpretation.** A sharp lag-1 spike in either the ACF or PACF followed by little structure is the bid-ask-bounce signature for tick-level price data with a tight spread. Whether the picture leans AR-like or MA-like is decided below by EACF and BIC.
+**Interpretation.** A handful of significant low-lag bars decaying toward the band is the AR/MA signature; whether the picture leans AR-like (sharper PACF cutoff) or MA-like (sharper ACF cutoff) is decided below by EACF and BIC.
 
 ```{r hg-eacf}
 eacf(train, ar.max = 6, ma.max = 6)
@@ -96,7 +98,7 @@ plot(armasubsets(y = train, nar = 6, nma = 6,
 ```{r hg-fit}
 m1 = arima(train, order = c(1, 0, 0))     # AR(1)
 m2 = arima(train, order = c(2, 0, 0))     # AR(2)        — overfit check
-m3 = arima(train, order = c(0, 0, 1))     # MA(1)        — bid-ask bounce
+m3 = arima(train, order = c(0, 0, 1))     # MA(1)
 m4 = arima(train, order = c(1, 0, 1))     # ARMA(1, 1)   — what EACF often suggests
 
 rbind(
@@ -368,7 +370,7 @@ abline(v = toy(train), lwd = 2)
 
 Both Round 4 series fit cleanly into the standard Box–Jenkins pipeline.
 
-**Hydrogel** is level-stationary; the EACF and BIC subset plot together pick a low-order ARMA, and the z-statistic check resolves any ARMA(1, 1)-vs-AR(1) ambiguity by parsimony. A negative MA coefficient (when MA(1) wins) is the quantitative signature of bid-ask bounce. Forecasts revert to the sample mean.
+**Hydrogel** is level-stationary; the EACF and BIC subset plot together pick a low-order ARMA, and the z-statistic check resolves any ARMA(1, 1)-vs-AR(1) ambiguity by parsimony. Forecasts revert to the sample mean.
 
 **Velvetfruit** is non-stationary; Box–Cox typically prefers the log scale, after which one differencing step yields ARIMA(0, 1, 1). Forecasts flat-line at the last observation with a $\sqrt h$-fanning prediction band on the price scale.
 
@@ -384,14 +386,14 @@ IMC Trading. (2025). *Prosperity 4 — Round 4 historical data.*
 
 ## A. Data dictionary
 
-The analysis reads two cleaned CSVs in `data/`, produced by `scripts/clean_round4.R` from the IMC Round 4 raw order-book dumps:
+The analysis reads two cleaned CSVs at the repo root, produced from the IMC Round 4 raw order-book dumps:
 
-| File                         | Columns           | Rows                                        |
-|------------------------------|-------------------|---------------------------------------------|
-| `hydrogel_mid.csv`      | `t`, `mid_price`  | one per 100-ms tick across days 1-3 (~30 000) |
-| `velvetfruit_mid.csv`   | `t`, `mid_price`  | one per 100-ms tick across days 1-3 (~30 000) |
+| File                    | Columns           | Rows                                                   |
+|-------------------------|-------------------|--------------------------------------------------------|
+| `hydrogel_mid.csv`      | `t`, `mid_price`  | one per 10-second bar across days 1-3 (~300, decimated)|
+| `velvetfruit_mid.csv`   | `t`, `mid_price`  | one per 10-second bar across days 1-3 (~300, decimated)|
 
-`t` is a global tick index (1, 2, 3, …) running continuously across the three days. `mid_price` is $(bid_1 + ask_1) / 2$ from the original IMC `prices_round_4_day_{d}.csv` order-book snapshots, filtered to a single product. The cleaning script discards everything else (bid/ask depth, volumes, the per-algorithm `profit_and_loss` column, and the `VEV_{strike}` voucher rows). Trades data (`trades_round_4_day_{d}.csv`) are not used in this analysis.
+`t` is a global tick index running continuously across the three days. `mid_price` is $(bid_1 + ask_1) / 2$ from the original IMC `prices_round_4_day_{d}.csv` order-book snapshots, filtered to a single product. The cleaning pipeline discards everything else (bid/ask depth, volumes, the per-algorithm `profit_and_loss` column, the `VEV_{strike}` voucher rows) and keeps every 100th row to bring the series down from ~30 000 to ~300 points — full tick resolution makes ACF/PACF identification uninformative because consecutive 100-ms ticks are correlated near 0.998. Trades data (`trades_round_4_day_{d}.csv`) are not used.
 
 ## B. Glossary of statistical terms
 
@@ -424,13 +426,13 @@ The only non-base package required for the analysis is `TSA` (Cryer & Chan compa
 
 To re-knit:
 
-1.  Ensure `data/hydrogel_mid.csv` and `data/velvetfruit_mid.csv` are present. They are produced by `scripts/clean_round4.R`, which reads the raw IMC `prices_round_4_day_{1, 2, 3}.csv` files. If the cleaned CSVs are already committed to the repo, this step can be skipped.
-2.  Open `Round4_Report.Rmd` in RStudio.
-3.  Click **Knit** (or run `rmarkdown::render("Round4_Report.Rmd")` from the console).
+1.  Ensure `hydrogel_mid.csv` and `velvetfruit_mid.csv` are present at the repo root.
+2.  Open the report in RStudio.
+3.  Click **Knit** (or run `rmarkdown::render(...)` from the console).
 
 The first knit will install `TSA` from CRAN if it is not already present.
 
-> **Runtime note.** With ~30 000 observations per series, `armasubsets()`, `BoxCox.ar()`, and the 1 000-path Monte Carlo block each take a noticeable moment. Total knit time on a modern laptop is roughly one to two minutes. While drafting, dropping the MC path count from 1 000 to 200 in the `fig16` chunk speeds iteration considerably.
+> **Runtime note.** After the every-100 decimation each series is ~300 points, so all chunks run quickly. Total knit time on a modern laptop is well under a minute.
 
 ## D. Full code listing
 
