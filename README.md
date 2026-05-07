@@ -292,7 +292,7 @@ prediction interval, not to the point forecast.
 
 ``` r
 h = length(test)
-plot(hg_best, n.ahead = h, ylab = "Mid-price",
+plot(hg_best, n.ahead = h, ylab = "Mid-price", xlab = "Tick",
      main = "Hydrogel — BIC-best forecast")
 ```
 
@@ -308,7 +308,7 @@ percent prediction limits.
 </div>
 
 ``` r
-plot(hg_second, n.ahead = h, ylab = "Mid-price",
+plot(hg_second, n.ahead = h, ylab = "Mid-price", xlab = "Tick",
      main = "Hydrogel — runner-up forecast")
 ```
 
@@ -394,7 +394,8 @@ y = train
 ## 4.2 Differencing
 
 ``` r
-plot(y, type = "l", ylab = "Mid-price", main = "Velvetfruit — training set")
+plot(y, type = "l", ylab = "Mid-price", xlab = "Tick",
+     main = "Velvetfruit — training set")
 ```
 
 <div class="figure" style="text-align: center">
@@ -408,7 +409,7 @@ Figure 8. Velvetfruit training series (raw scale).
 </div>
 
 ``` r
-plot(diff(y), type = "l", ylab = "", main = "First difference")
+plot(diff(y), type = "l", ylab = "", xlab = "Tick", main = "First difference")
 abline(h = 0, lty = 2)
 ```
 
@@ -600,7 +601,7 @@ above.
 
 ``` r
 h = length(test)
-plot(m_vf, n.ahead = h, ylab = "Mid-price",
+plot(m_vf, n.ahead = h, ylab = "Mid-price", xlab = "Tick",
      main = "Velvetfruit — BIC-best forecast")
 ```
 
@@ -616,7 +617,7 @@ with 95 percent prediction limits.
 </div>
 
 ``` r
-plot(m_vf2, n.ahead = h, ylab = "Mid-price",
+plot(m_vf2, n.ahead = h, ylab = "Mid-price", xlab = "Tick",
      main = "Velvetfruit — runner-up forecast")
 ```
 
