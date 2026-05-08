@@ -727,42 +727,10 @@ Figure 14. Twenty Monte Carlo paths from the fitted velvetfruit model
 </div>
 
 **Interpretation.** The actual data sits inside the cloud of synthetic
-paths the model would generate — sanity check that the fit is
-reasonable. None of the 20 paths is identical to the actual one, which
-is exactly the point of MC: each is one possible realisation of the same
-underlying random process.
-
-``` r
-toy = function(price) {
-  ma = filter(price, rep(1/100, 100), sides = 1)
-  signal = as.numeric(price < ma - 5); signal[is.na(signal)] = 0
-  ret = diff(price)
-  sum(signal[-length(signal)] * ret)
-}
-sim_pnl = replicate(1000, toy(sim_path()))
-hist(sim_pnl, breaks = 40,
-     main = "Simulated P&L distribution (1000 paths)",
-     xlab = "End-of-day P&L (XIRECS)")
-abline(v = toy(train), lwd = 2)
-```
-
-<div class="figure" style="text-align: center">
-
-<img src="README_files/figure-gfm/fig15-1.png" alt="Figure 15. P&amp;L histogram for a toy mean-reversion rule applied to 1000 simulated paths. Vertical line — P&amp;L on the actual training data."  />
-<p class="caption">
-
-Figure 15. P&L histogram for a toy mean-reversion rule applied to 1000
-simulated paths. Vertical line — P&L on the actual training data.
-</p>
-
-</div>
-
-**Interpretation.** The standard deviation of this histogram is the
-**noise floor**: any single-day P&L improvement smaller than one MC-σ is
-statistically indistinguishable from luck. If the actual P&L (vertical
-line) sits in the bulk of the histogram our strategy is performing as
-the model predicts; if it sits in a tail, either the day was unusual or
-the model is mis-specified.
+paths the model would generate — a visual sanity check that the fitted
+process is reasonable. None of the 20 paths is identical to the actual
+one, which is exactly the point of MC: each is one possible realisation
+of the same underlying random process.
 
 # 6 Conclusions
 
@@ -773,15 +741,18 @@ pick a low-order ARMA, and the z-statistic check resolves any ARMA(1,
 1)-vs-AR(1) ambiguity by parsimony. Forecasts revert to the sample mean.
 
 **Velvetfruit** is non-stationary; one differencing step on the raw
-scale yields ARIMA(0, 1, 1). The price range is narrow enough (~2 %)
-that Box–Cox variance stabilisation contributes nothing, so we skip it.
-Forecasts flat-line at the last observation with a $\sqrt h$-fanning
-prediction band.
+scale leaves an essentially uncorrelated series. BIC decisively prefers
+the pure random walk ARIMA(0, 1, 0) over both ARIMA(0, 1, 1) and
+ARIMA(1, 1, 0) (gap ≈ 5.5 units), and AIC agrees. A single isolated
+lag-3 spike survives in the residuals and flags the joint Ljung-Box
+test, but no low-order ARMA correction can absorb it without paying a
+BIC penalty. The price range is narrow enough (~2 %) that Box–Cox
+variance stabilisation contributes nothing, so we skip it. Forecasts
+flat-line at the last observation with a $\sqrt h$-fanning prediction
+band.
 
-The fitted models double as generators for **Monte Carlo backtesting**:
-simulated paths from `arima.sim()` give a P&L distribution that defines
-the noise floor against which any real strategy improvement should be
-measured.
+Monte Carlo paths from `arima.sim()` confirm visually that the actual
+training series is a typical realisation of the fitted process.
 
 # 7 References
 
@@ -925,10 +896,10 @@ train = vf[1:k]; test = vf[(k+1):n]
 acf(diff(train)); pacf(diff(train)); eacf(diff(train))
 
 # Fit ARIMA(p, 1, q) candidates
-m1 = arima(train, order = c(0, 1, 0))   # random walk
+m1 = arima(train, order = c(0, 1, 0))   # random walk — BIC-best
 m2 = arima(train, order = c(0, 1, 1))   # +MA correction
 rbind(RW = BIC(m1), RW_MA = BIC(m2))
 
 # Forecast on price scale
-plot(m2, n.ahead = length(test))
+plot(m1, n.ahead = length(test))
 ```
