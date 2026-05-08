@@ -41,10 +41,12 @@ focus on two products:
   asset — a candidate for the Chapter 5 ARIMA tools after one
   differencing step.
 
-For each series we run the standard Box–Jenkins pipeline: identify the
-order from ACF/PACF/EACF and the BIC subset plot, estimate by maximum
-likelihood, compare candidates by AIC and BIC, diagnose residuals, and
-forecast on a held-out window.
+For each series we identify a candidate model from ACF/PACF/EACF and the
+BIC subset plot, estimate by maximum likelihood, compare candidates by
+AIC and BIC, diagnose residuals, and forecast on a held-out window.
+Hydrogel runs the full pipeline and lands on a low-order ARMA;
+velvetfruit’s identification tools produce no clean ARMA signature, so
+the analysis there ends at the random-walk null.
 
 # 2 Data
 
@@ -734,25 +736,25 @@ of the same underlying random process.
 
 # 6 Conclusions
 
-Both Round 4 series fit cleanly into the standard Box–Jenkins pipeline.
+The two series reach opposite verdicts from the same identification
+tools.
 
 **Hydrogel** is level-stationary; the EACF and BIC subset plot together
 pick a low-order ARMA, and the z-statistic check resolves any ARMA(1,
 1)-vs-AR(1) ambiguity by parsimony. Forecasts revert to the sample mean.
 
-**Velvetfruit** is non-stationary; one differencing step on the raw
-scale leaves an essentially uncorrelated series. BIC decisively prefers
-the pure random walk ARIMA(0, 1, 0) over both ARIMA(0, 1, 1) and
-ARIMA(1, 1, 0) (gap ≈ 5.5 units), and AIC agrees. A single isolated
-lag-3 spike survives in the residuals and flags the joint Ljung-Box
-test, but no low-order ARMA correction can absorb it without paying a
-BIC penalty. The price range is narrow enough (~2 %) that Box–Cox
-variance stabilisation contributes nothing, so we skip it. Forecasts
-flat-line at the last observation with a $\sqrt h$-fanning prediction
-band.
-
-Monte Carlo paths from `arima.sim()` confirm visually that the actual
-training series is a typical realisation of the fitted process.
+**Velvetfruit** is non-stationary; the 2 % price range makes Box–Cox
+variance stabilisation uninformative, so we difference the raw scale
+once. The differenced series shows no clean low-order ARMA signature in
+any of ACF/PACF, EACF, or the BIC subset plot, and BIC prefers ARIMA(0,
+1, 0) over both ARIMA(0, 1, 1) and ARIMA(1, 1, 0) by ≈ 5.5 units, with
+AIC agreeing. A single isolated lag-3 spike survives in the residuals
+and flags the joint Ljung-Box test, but no low-order ARMA correction can
+absorb it without paying a BIC penalty — real enough to detect, too
+isolated to model. Forecasts flat-line at the last observation with a
+$\sqrt h$-fanning prediction band, and Monte Carlo paths from
+`arima.sim()` confirm the actual training series is a typical
+realisation of the fitted process.
 
 # 7 References
 
