@@ -753,13 +753,24 @@ variance stabilisation uninformative, so we difference the raw scale
 once. The differenced series shows no clean low-order ARMA signature in
 any of ACF/PACF, EACF, or the BIC subset plot, and BIC prefers ARIMA(0,
 1, 0) over both ARIMA(0, 1, 1) and ARIMA(1, 1, 0) by ≈ 5.5 units, with
-AIC agreeing. A single isolated lag-3 spike survives in the residuals
-and flags the joint Ljung-Box test, but no low-order ARMA correction can
-absorb it without paying a BIC penalty — real enough to detect, too
-isolated to model. Forecasts flat-line at the last observation with a
-$\sqrt h$-fanning prediction band, and Monte Carlo paths from
-`arima.sim()` confirm the actual training series is a typical
-realisation of the fitted process.
+AIC agreeing. A single isolated lag-3 spike remains in the residuals and
+is flagged by the joint Ljung-Box test, but adding either an MA or AR
+correction does not improve the in-sample log-likelihood enough to
+offset the BIC complexity penalty. Forecasts therefore remain at the
+last observation with a $\sqrt h$-widening prediction band, and Monte
+Carlo paths from `arima.sim()` confirm the actual training series is a
+typical realisation of the fitted process.
+
+These results have direct implications for trading strategy in the IMC
+Prosperity competition. Hydrogel’s mean-reverting behaviour admits
+strategies that buy below the long-run mean and sell above it,
+exploiting the predictable return to equilibrium. Velvetfruit, by
+contrast, shows no exploitable predictability in its mid-price path: any
+tradable signal must come from outside the price history, such as
+order-book microstructure, market-making spreads, or arbitrage against
+the related voucher contracts. The identification step therefore doubles
+as a strategy filter, distinguishing products with price-history-based
+opportunities from those that require non-price information.
 
 # 7 References
 
